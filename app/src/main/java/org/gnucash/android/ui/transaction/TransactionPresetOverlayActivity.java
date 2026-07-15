@@ -69,6 +69,17 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
                     + " AND " + DatabaseSchema.AccountEntry.COLUMN_PLACEHOLDER + " = 0"
                     + " AND " + DatabaseSchema.AccountEntry.COLUMN_HIDDEN + " = 0";
 
+    private static final String STATE_EDITING_PRESET_ID = "editing_preset_id";
+    private static final String STATE_DIRECTION_OVERRIDDEN = "direction_overridden";
+    private static final String STATE_DIRECTION_TYPE = "direction_type";
+    private static final String STATE_EXTRA_EXPANDED = "extra_expanded";
+    private static final String STATE_AMOUNT = "amount";
+    private static final String STATE_LABEL = "label";
+    private static final String STATE_DESCRIPTION = "description";
+    private static final String STATE_NOTES = "notes";
+    private static final String STATE_FROM_UID = "from_uid";
+    private static final String STATE_TO_UID = "to_uid";
+
     @BindView(R.id.preset_buttons_container) LinearLayout mPresetButtonsContainer;
     @BindView(R.id.input_from_account) Spinner mFromAccountSpinner;
     @BindView(R.id.input_to_account) Spinner mToAccountSpinner;
@@ -123,7 +134,69 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
 
         bindListeners();
         refreshPresetButtons();
-        applyDirectionDefault();
+        if (savedInstanceState != null) {
+            restoreState(savedInstanceState);
+        } else {
+            applyDirectionDefault();
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(STATE_EDITING_PRESET_ID, mEditingPresetId);
+        outState.putBoolean(STATE_DIRECTION_OVERRIDDEN, mDirectionUserOverridden);
+        outState.putString(STATE_DIRECTION_TYPE, mDirectionSwitch.getTransactionType().name());
+        outState.putBoolean(STATE_EXTRA_EXPANDED, mExtraSettingsExpanded);
+        outState.putString(STATE_AMOUNT, mAmountEditText.getText().toString());
+        outState.putString(STATE_LABEL, mLabelEditText.getText().toString());
+        outState.putString(STATE_DESCRIPTION, mDescriptionEditText.getText().toString());
+        outState.putString(STATE_NOTES, mNotesEditText.getText().toString());
+        outState.putString(STATE_FROM_UID, getSelectedAccountUID(mFromAccountSpinner));
+        if (mUseDoubleEntry) {
+            outState.putString(STATE_TO_UID, getSelectedAccountUID(mToAccountSpinner));
+        }
+    }
+
+    private void restoreState(Bundle state) {
+        String fromUID = state.getString(STATE_FROM_UID);
+        mUpdatingSpinners = true;
+        selectAccount(mFromAccountSpinner, mFromAdapter, fromUID);
+        if (mUseDoubleEntry) {
+            refreshToAccountSpinner(fromUID);
+            selectAccount(mToAccountSpinner, mToAdapter, state.getString(STATE_TO_UID));
+        }
+        mUpdatingSpinners = false;
+
+        mAmountEditText.setText(state.getString(STATE_AMOUNT, ""));
+        mLabelEditText.setText(state.getString(STATE_LABEL, ""));
+        mDescriptionEditText.setText(state.getString(STATE_DESCRIPTION, ""));
+        mNotesEditText.setText(state.getString(STATE_NOTES, ""));
+        mEditingPresetId = state.getString(STATE_EDITING_PRESET_ID);
+
+        mExtraSettingsExpanded = state.getBoolean(STATE_EXTRA_EXPANDED, false);
+        mExtraSettingsLayout.setVisibility(mExtraSettingsExpanded ? View.VISIBLE : View.GONE);
+        mExtraSettingsLabel.setText(mExtraSettingsExpanded
+                ? R.string.label_extra_settings_expanded
+                : R.string.label_extra_settings_collapsed);
+
+        mDirectionUserOverridden = state.getBoolean(STATE_DIRECTION_OVERRIDDEN, false);
+        mDirectionSwitch.setAccountType(getSelectedAccountType(mFromAccountSpinner));
+        if (mDirectionUserOverridden) {
+            String typeName = state.getString(STATE_DIRECTION_TYPE);
+            if (typeName != null) {
+                try {
+                    mUpdatingSpinners = true;
+                    mDirectionSwitch.setChecked(TransactionType.valueOf(typeName));
+                } catch (IllegalArgumentException ignored) {
+                    // unknown stored type; leave switch as-is
+                } finally {
+                    mUpdatingSpinners = false;
+                }
+            }
+        } else {
+            applyDirectionDefault();
+        }
     }
 
     private void bindAccountSpinners() {
@@ -269,18 +342,42 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         }
     }
 
+    private int amountFractionDigits(String accountUID) {
+        if (accountUID != null) {
+            try {
+                return mAccountsDbAdapter.getRecord(accountUID).getCommodity().getSmallestFractionDigits();
+            } catch (IllegalArgumentException ignored) {
+                // account missing; fall back to a sensible default
+            }
+        }
+        return 2;
+    }
+
     private void applyPreset(TransactionPreset preset) {
         mEditingPresetId = preset.getId();
         mUpdatingSpinners = true;
-        selectAccount(mFromAccountSpinner, mFromAdapter, preset.getFromAccountUID());
+        boolean fromFound = selectAccount(mFromAccountSpinner, mFromAdapter, preset.getFromAccountUID());
+        boolean toFound = true;
         if (mUseDoubleEntry) {
             refreshToAccountSpinner(preset.getFromAccountUID());
-            selectAccount(mToAccountSpinner, mToAdapter, preset.getToAccountUID());
+            toFound = selectAccount(mToAccountSpinner, mToAdapter, preset.getToAccountUID());
         }
         mUpdatingSpinners = false;
 
+        boolean fromMissing = preset.getFromAccountUID() != null && !fromFound;
+        boolean toMissing = mUseDoubleEntry && preset.getToAccountUID() != null && !toFound;
+        if (fromMissing || toMissing) {
+            Toast.makeText(this, R.string.toast_preset_account_missing, Toast.LENGTH_LONG).show();
+        }
+
         if (preset.getAmount() != null) {
-            mAmountEditText.setText(preset.getAmount());
+            try {
+                BigDecimal stored = new BigDecimal(preset.getAmount());
+                mAmountEditText.setText(
+                        AmountParser.format(stored, amountFractionDigits(preset.getFromAccountUID())));
+            } catch (NumberFormatException e) {
+                mAmountEditText.setText("");
+            }
         } else {
             mAmountEditText.setText("");
         }
@@ -320,7 +417,11 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
                         if (which == 0) {
                             applyPreset(preset);
                         } else if (which == 1) {
-                            mPresetStore.delete(preset.getId());
+                            if (!mPresetStore.delete(preset.getId())) {
+                                Toast.makeText(TransactionPresetOverlayActivity.this,
+                                        R.string.toast_preset_save_failed, Toast.LENGTH_SHORT).show();
+                                return;
+                            }
                             if (preset.getId().equals(mEditingPresetId)) {
                                 mEditingPresetId = null;
                             }
@@ -416,11 +517,18 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
             preset.setDirectionOverride(null);
         }
 
+        boolean saved;
         if (mEditingPresetId != null && mPresetStore.findById(mEditingPresetId) != null) {
-            mPresetStore.update(preset);
+            saved = mPresetStore.update(preset);
         } else {
-            mPresetStore.add(preset);
-            mEditingPresetId = preset.getId();
+            saved = mPresetStore.add(preset);
+            if (saved) {
+                mEditingPresetId = preset.getId();
+            }
+        }
+        if (!saved) {
+            Toast.makeText(this, R.string.toast_preset_save_failed, Toast.LENGTH_SHORT).show();
+            return;
         }
         refreshPresetButtons();
         Toast.makeText(this, R.string.toast_preset_saved, Toast.LENGTH_SHORT).show();
@@ -446,6 +554,12 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
             Toast.makeText(this, R.string.toast_invalid_amount, Toast.LENGTH_SHORT).show();
             return;
         }
+        if (amount.compareTo(BigDecimal.ZERO) == 0) {
+            Toast.makeText(this, R.string.toast_enter_amount, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Commodity commodity = mAccountsDbAdapter.getRecord(fromUID).getCommodity();
 
         String toUID;
         if (mUseDoubleEntry) {
@@ -458,12 +572,15 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
                 Toast.makeText(this, R.string.toast_from_to_must_differ, Toast.LENGTH_SHORT).show();
                 return;
             }
+            Commodity toCommodity = mAccountsDbAdapter.getRecord(toUID).getCommodity();
+            if (!commodity.equals(toCommodity)) {
+                Toast.makeText(this, R.string.toast_quick_tx_multi_currency, Toast.LENGTH_LONG).show();
+                return;
+            }
         } else {
-            Commodity commodity = mAccountsDbAdapter.getRecord(fromUID).getCommodity();
             toUID = mAccountsDbAdapter.getOrCreateImbalanceAccountUID(commodity);
         }
 
-        Commodity commodity = mAccountsDbAdapter.getRecord(fromUID).getCommodity();
         String description = mDescriptionEditText.getText().toString().trim();
         if (description.isEmpty()) {
             description = mLabelEditText.getText().toString().trim();
@@ -505,14 +622,16 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         return mAccountsDbAdapter.getAccountType(uid);
     }
 
-    private void selectAccount(Spinner spinner, QualifiedAccountNameCursorAdapter adapter, String accountUID) {
+    private boolean selectAccount(Spinner spinner, QualifiedAccountNameCursorAdapter adapter, String accountUID) {
         if (accountUID == null || adapter == null) {
-            return;
+            return false;
         }
         int position = adapter.getPosition(accountUID);
         if (position >= 0) {
             spinner.setSelection(position);
+            return true;
         }
+        return false;
     }
 
     @Override
