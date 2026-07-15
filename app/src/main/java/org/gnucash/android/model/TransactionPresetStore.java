@@ -40,18 +40,26 @@ public class TransactionPresetStore {
 
     private final SharedPreferences mPreferences;
 
+    /**
+     * @param preferences Book-scoped preferences used to persist presets
+     */
     public TransactionPresetStore(@NonNull SharedPreferences preferences) {
         mPreferences = preferences;
     }
 
     /**
-     * Store for the currently active book.
+     * Creates a store bound to the currently active book's SharedPreferences.
+     * @return Store for the active book
      */
     @NonNull
     public static TransactionPresetStore forActiveBook() {
         return new TransactionPresetStore(PreferenceActivity.getActiveBookSharedPreferences());
     }
 
+    /**
+     * Loads all presets, or an empty list if none are stored / parsing fails.
+     * @return Mutable list of presets (never {@code null})
+     */
     @NonNull
     public List<TransactionPreset> loadAll() {
         String json = mPreferences.getString(PREFS_KEY, null);
@@ -74,6 +82,10 @@ public class TransactionPresetStore {
         }
     }
 
+    /**
+     * Replaces the stored preset list with {@code presets}.
+     * @param presets Presets to persist
+     */
     public void saveAll(@NonNull List<TransactionPreset> presets) {
         JSONArray array = new JSONArray();
         try {
@@ -86,12 +98,20 @@ public class TransactionPresetStore {
         }
     }
 
+    /**
+     * Appends a preset to the stored list.
+     * @param preset Preset to add
+     */
     public void add(@NonNull TransactionPreset preset) {
         List<TransactionPreset> presets = loadAll();
         presets.add(preset);
         saveAll(presets);
     }
 
+    /**
+     * Updates a preset with a matching ID, or appends it if not found.
+     * @param preset Preset to update
+     */
     public void update(@NonNull TransactionPreset preset) {
         List<TransactionPreset> presets = loadAll();
         for (int i = 0; i < presets.size(); i++) {
@@ -105,6 +125,11 @@ public class TransactionPresetStore {
         saveAll(presets);
     }
 
+    /**
+     * Deletes the preset with the given ID.
+     * @param presetId ID of the preset to remove
+     * @return {@code true} if a preset was removed, {@code false} otherwise
+     */
     public boolean delete(@NonNull String presetId) {
         List<TransactionPreset> presets = loadAll();
         boolean removed = false;
@@ -120,6 +145,11 @@ public class TransactionPresetStore {
         return removed;
     }
 
+    /**
+     * Finds a preset by ID.
+     * @param presetId ID to look up
+     * @return Matching preset, or {@code null} if not found
+     */
     @Nullable
     public TransactionPreset findById(@NonNull String presetId) {
         for (TransactionPreset preset : loadAll()) {

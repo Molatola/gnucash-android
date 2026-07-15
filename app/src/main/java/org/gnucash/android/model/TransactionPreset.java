@@ -45,58 +45,93 @@ public class TransactionPreset {
     private String mDescription = "";
     private String mNotes = "";
 
+    /**
+     * Creates a preset with a newly generated unique ID.
+     */
     public TransactionPreset() {
         mId = BaseModel.generateUID();
     }
 
+    /**
+     * Creates a preset with the given unique ID (used when restoring from storage).
+     * @param id Existing preset identifier
+     */
     public TransactionPreset(@NonNull String id) {
         mId = id;
     }
 
+    /**
+     * @return Unique identifier of this preset
+     */
     @NonNull
     public String getId() {
         return mId;
     }
 
+    /**
+     * @param id Unique identifier of this preset
+     */
     public void setId(@NonNull String id) {
         mId = id;
     }
 
+    /**
+     * @return Button label, or empty string when unset
+     */
     @NonNull
     public String getLabel() {
         return mLabel != null ? mLabel : "";
     }
 
+    /**
+     * @param label Button label shown on the preset chip
+     */
     public void setLabel(@Nullable String label) {
         mLabel = label != null ? label : "";
     }
 
+    /**
+     * @return UID of the from/origin account, or {@code null} if unset
+     */
     @Nullable
     public String getFromAccountUID() {
         return mFromAccountUID;
     }
 
+    /**
+     * @param fromAccountUID UID of the from/origin account
+     */
     public void setFromAccountUID(@Nullable String fromAccountUID) {
         mFromAccountUID = fromAccountUID;
     }
 
+    /**
+     * @return UID of the to/transfer account, or {@code null} if unset
+     */
     @Nullable
     public String getToAccountUID() {
         return mToAccountUID;
     }
 
+    /**
+     * @param toAccountUID UID of the to/transfer account
+     */
     public void setToAccountUID(@Nullable String toAccountUID) {
         mToAccountUID = toAccountUID;
     }
 
     /**
      * Default amount as a plain US-locale decimal string, or {@code null} if unset.
+     * @return Amount string, or {@code null}
      */
     @Nullable
     public String getAmount() {
         return mAmount;
     }
 
+    /**
+     * @param amount Default amount as a plain decimal string, or {@code null} to clear
+     */
     public void setAmount(@Nullable String amount) {
         mAmount = amount;
     }
@@ -104,36 +139,55 @@ public class TransactionPreset {
     /**
      * Optional saved direction for the from-account split. When {@code null}, the overlay
      * recomputes the default from the selected account types.
+     * @return Saved {@link TransactionType}, or {@code null}
      */
     @Nullable
     public TransactionType getDirectionOverride() {
         return mDirectionOverride;
     }
 
+    /**
+     * @param directionOverride Saved direction for the from-account split, or {@code null} to clear
+     */
     public void setDirectionOverride(@Nullable TransactionType directionOverride) {
         mDirectionOverride = directionOverride;
     }
 
+    /**
+     * @return Transaction description/name, or empty string when unset
+     */
     @NonNull
     public String getDescription() {
         return mDescription != null ? mDescription : "";
     }
 
+    /**
+     * @param description Transaction description/name
+     */
     public void setDescription(@Nullable String description) {
         mDescription = description != null ? description : "";
     }
 
+    /**
+     * @return Transaction notes, or empty string when unset
+     */
     @NonNull
     public String getNotes() {
         return mNotes != null ? mNotes : "";
     }
 
+    /**
+     * @param notes Transaction notes
+     */
     public void setNotes(@Nullable String notes) {
         mNotes = notes != null ? notes : "";
     }
 
     /**
      * Display label for the preset button. Falls back to a from→to hint when label is blank.
+     * @param fromName Display name of the from account (may be {@code null})
+     * @param toName Display name of the to account (may be {@code null})
+     * @return Label to show on the preset button
      */
     @NonNull
     public String getDisplayLabel(@Nullable String fromName, @Nullable String toName) {
@@ -145,6 +199,11 @@ public class TransactionPreset {
         return from + " → " + to;
     }
 
+    /**
+     * Serializes this preset to a JSON object for SharedPreferences storage.
+     * @return JSON representation of the preset
+     * @throws JSONException if the object cannot be built
+     */
     @NonNull
     public JSONObject toJson() throws JSONException {
         JSONObject json = new JSONObject();
@@ -160,6 +219,12 @@ public class TransactionPreset {
         return json;
     }
 
+    /**
+     * Restores a preset from its JSON representation.
+     * @param json JSON object previously produced by {@link #toJson()}
+     * @return Restored preset instance
+     * @throws JSONException if required fields are invalid
+     */
     @NonNull
     public static TransactionPreset fromJson(@NonNull JSONObject json) throws JSONException {
         String id = json.optString(KEY_ID, null);

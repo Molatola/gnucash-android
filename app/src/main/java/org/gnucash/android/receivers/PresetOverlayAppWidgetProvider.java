@@ -31,6 +31,9 @@ import org.gnucash.android.ui.transaction.TransactionPresetOverlayActivity;
  */
 public class PresetOverlayAppWidgetProvider extends AppWidgetProvider {
 
+    /**
+     * Updates each widget instance so its click launches the overlay.
+     */
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         for (int appWidgetId : appWidgetIds) {
@@ -38,6 +41,12 @@ public class PresetOverlayAppWidgetProvider extends AppWidgetProvider {
         }
     }
 
+    /**
+     * Binds the widget RemoteViews to open {@link TransactionPresetOverlayActivity}.
+     * @param context Application context
+     * @param appWidgetManager Widget manager
+     * @param appWidgetId Widget instance ID
+     */
     public static void updateWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_preset_overlay_launcher);
 
