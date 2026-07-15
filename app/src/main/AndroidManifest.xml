@@ -94,6 +94,12 @@
 		        <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE"/>
 		    </intent-filter>
 		</activity>
+        <activity
+            android:name=".ui.transaction.TransactionPresetOverlayActivity"
+            android:excludeFromRecents="true"
+            android:label="@string/title_quick_transaction"
+            android:theme="@style/Dialog.TransactionPresetOverlay"
+            android:windowSoftInputMode="stateHidden|adjustResize" />
         <activity android:name=".ui.common.FormActivity"
             android:configChanges="orientation|screenSize"/>
         <activity android:name=".ui.transaction.TransactionDetailActivity"
@@ -150,6 +156,16 @@
 		    <meta-data android:name="android.appwidget.provider"
 		               android:resource="@xml/transaction_appwidget_info" />
 		</receiver>
+        <receiver
+            android:name=".receivers.PresetOverlayAppWidgetProvider"
+            android:label="@string/label_widget_quick_transaction">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/preset_overlay_appwidget_info" />
+        </receiver>
         <receiver android:name=".receivers.BootReceiver"
             android:label="Schedules regular runs for the scheduled events service"
             android:exported="false">

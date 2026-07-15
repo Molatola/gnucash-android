@@ -79,6 +79,14 @@
     <style name="Dialog.WidgetConfiguration" parent="android:Theme.Dialog">
     </style>
 
+    <style name="Dialog.TransactionPresetOverlay" parent="Theme.AppCompat.Light.Dialog">
+        <item name="colorPrimary">@color/theme_primary</item>
+        <item name="colorPrimaryDark">@color/theme_primary_dark</item>
+        <item name="colorAccent">@color/theme_accent</item>
+        <item name="android:windowMinWidthMajor">90%</item>
+        <item name="android:windowMinWidthMinor">90%</item>
+    </style>
+
     <style name="FormRow">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">?android:attr/listPreferredItemHeight</item>
