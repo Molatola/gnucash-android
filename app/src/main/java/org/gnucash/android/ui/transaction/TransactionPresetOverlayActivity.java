@@ -488,6 +488,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         TransactionPreset preset = mEditingPresetId != null
                 ? mPresetStore.findById(mEditingPresetId)
                 : null;
+        boolean isEditingExisting = preset != null;
         if (preset == null) {
             preset = new TransactionPreset();
         }
@@ -517,14 +518,9 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
             preset.setDirectionOverride(null);
         }
 
-        boolean saved;
-        if (mEditingPresetId != null && mPresetStore.findById(mEditingPresetId) != null) {
-            saved = mPresetStore.update(preset);
-        } else {
-            saved = mPresetStore.add(preset);
-            if (saved) {
-                mEditingPresetId = preset.getId();
-            }
+        boolean saved = isEditingExisting ? mPresetStore.update(preset) : mPresetStore.add(preset);
+        if (saved && !isEditingExisting) {
+            mEditingPresetId = preset.getId();
         }
         if (!saved) {
             Toast.makeText(this, R.string.toast_preset_save_failed, Toast.LENGTH_SHORT).show();
