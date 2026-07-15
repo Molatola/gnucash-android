@@ -1,5 +1,12 @@
 Change Log
 ===============================================================================
+Unreleased
+----------------------------
+* Feature: Quick transaction overlay with customizable preset buttons (navigation drawer entry and homescreen widget)
+* Fixed: Quick entry blocks multi-currency account pairs; use the full transaction form for currency conversion
+* Fixed: Preset amounts are shown using the device locale's decimal separator
+* Improved: A single corrupt preset no longer hides all other saved presets
+
 Version 2.4.1 *(2019-11-30)*
 ----------------------------
 * Fixes #809: Crash when exporting CSV

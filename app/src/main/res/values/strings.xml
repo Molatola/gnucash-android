@@ -500,4 +500,31 @@
         <item>Tax</item>
         <item>Placeholder</item>
     </string-array>
+
+    <!-- Quick transaction overlay / presets -->
+    <string name="title_quick_transaction">Quick transaction</string>
+    <string name="nav_menu_quick_transaction">Quick transaction</string>
+    <string name="label_preset_buttons">Preset buttons</string>
+    <string name="label_from_account">From account</string>
+    <string name="label_to_account">To account</string>
+    <string name="label_extra_settings_collapsed">▸ Extra settings</string>
+    <string name="label_extra_settings_expanded">▾ Extra settings</string>
+    <string name="label_preset_button_label">Button label</string>
+    <string name="label_no_presets">No presets yet — fill the form and tap Save as button</string>
+    <string name="label_account_deleted_short">Deleted</string>
+    <string name="btn_save_as_preset">Save as button</string>
+    <string name="btn_edit_preset">Edit</string>
+    <string name="btn_delete_preset">Delete</string>
+    <string name="toast_preset_saved">Preset button saved</string>
+    <string name="toast_preset_deleted">Preset button deleted</string>
+    <string name="toast_transaction_saved">Transaction saved</string>
+    <string name="toast_select_from_account">Select a from account</string>
+    <string name="toast_select_to_account">Select a to account</string>
+    <string name="toast_from_to_must_differ">From and to accounts must be different</string>
+    <string name="toast_enter_amount">Enter an amount</string>
+    <string name="toast_invalid_amount">Invalid amount</string>
+    <string name="toast_quick_tx_multi_currency">Quick entry supports one currency. Use the full transaction form for currency conversion.</string>
+    <string name="toast_preset_save_failed">Could not save preset button</string>
+    <string name="toast_preset_account_missing">Some accounts for this preset are missing. Choose accounts and save again.</string>
+    <string name="label_widget_quick_transaction">Quick transaction</string>
 </resources>

@@ -49,6 +49,7 @@ import org.gnucash.android.ui.passcode.PasscodeLockActivity;
 import org.gnucash.android.ui.report.ReportsActivity;
 import org.gnucash.android.ui.settings.PreferenceActivity;
 import org.gnucash.android.ui.transaction.ScheduledActionsActivity;
+import org.gnucash.android.ui.transaction.TransactionPresetOverlayActivity;
 import org.gnucash.android.util.BookUtils;
 
 import butterknife.BindView;
@@ -266,6 +267,10 @@ public abstract class BaseDrawerActivity extends PasscodeLockActivity implements
                 startActivity(new Intent(this, BudgetsActivity.class));
                 break;
 */
+            case R.id.nav_item_quick_transaction:
+                startActivity(new Intent(this, TransactionPresetOverlayActivity.class));
+                break;
+
             case R.id.nav_item_scheduled_actions: { //show scheduled transactions
                 Intent intent = new Intent(this, ScheduledActionsActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);

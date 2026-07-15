@@ -29,4 +29,23 @@ public class AmountParser {
 
         return parsedAmount;
     }
+
+    /**
+     * Formats {@code amount} for display in an amount input field using the default locale.
+     *
+     * <p>Grouping separators are disabled so the result can be re-parsed by
+     * {@link #parse(String)}. Stored amounts are locale-independent plain decimals, so this
+     * must be used instead of the raw stored string when populating an editable field.</p>
+     *
+     * @param amount         Amount to format.
+     * @param fractionDigits Maximum number of fraction digits to show.
+     * @return The amount formatted with the default-locale decimal separator.
+     */
+    public static String format(BigDecimal amount, int fractionDigits) {
+        DecimalFormat formatter = (DecimalFormat) NumberFormat.getNumberInstance();
+        formatter.setGroupingUsed(false);
+        formatter.setMinimumFractionDigits(0);
+        formatter.setMaximumFractionDigits(fractionDigits);
+        return formatter.format(amount);
+    }
 }
