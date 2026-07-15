@@ -200,6 +200,25 @@ public class TransactionPreset {
     }
 
     /**
+     * Creates an independent copy of this preset, including its ID.
+     * <p>Used by {@link TransactionPresetStore} so callers never share mutable
+     * instances with the store's internal cache.</p>
+     * @return Copy of this preset
+     */
+    @NonNull
+    public TransactionPreset copy() {
+        TransactionPreset copy = new TransactionPreset(mId);
+        copy.mLabel = mLabel;
+        copy.mFromAccountUID = mFromAccountUID;
+        copy.mToAccountUID = mToAccountUID;
+        copy.mAmount = mAmount;
+        copy.mDirectionOverride = mDirectionOverride;
+        copy.mDescription = mDescription;
+        copy.mNotes = mNotes;
+        return copy;
+    }
+
+    /**
      * Serializes this preset to a JSON object for SharedPreferences storage.
      * @return JSON representation of the preset
      * @throws JSONException if the object cannot be built
@@ -227,8 +246,10 @@ public class TransactionPreset {
      */
     @NonNull
     public static TransactionPreset fromJson(@NonNull JSONObject json) throws JSONException {
-        String id = json.optString(KEY_ID, null);
-        TransactionPreset preset = (id != null && !id.isEmpty())
+        // optNullableString guards against JSON null becoming the literal string "null",
+        // which would make all such presets collide under a single ID
+        String id = optNullableString(json, KEY_ID);
+        TransactionPreset preset = (id != null)
                 ? new TransactionPreset(id)
                 : new TransactionPreset();
         preset.setLabel(json.optString(KEY_LABEL, ""));

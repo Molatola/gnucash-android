@@ -18,8 +18,38 @@ public class AmountParser {
      * @throws ParseException if the full string couldn't be parsed as an amount.
      */
     public static BigDecimal parse(String amount) throws ParseException {
+        return parse(amount, true);
+    }
+
+    /**
+     * Parses {@code amount} like {@link #parse(String)} but rejects grouping separators.
+     *
+     * <p>Use this for plain amount input fields. With lenient parsing, an input like
+     * {@code "3.50"} in a comma-decimal locale is consumed as a grouped integer and yields
+     * {@code 350} — a silently wrong amount. With grouping disabled the same input fails
+     * with a {@link ParseException} so the user can correct it. Output of
+     * {@link #format(BigDecimal, int)} always re-parses successfully since it disables
+     * grouping too.</p>
+     *
+     * @param amount String with the amount to parse.
+     * @return The amount parsed as a BigDecimal.
+     * @throws ParseException if the full string couldn't be parsed as a plain decimal.
+     */
+    public static BigDecimal parseStrict(String amount) throws ParseException {
+        // Some ICU-backed DecimalFormat versions still match grouping separators while
+        // parsing even with grouping disabled, so reject them explicitly.
+        DecimalFormat formatter = (DecimalFormat) NumberFormat.getNumberInstance();
+        char groupingSeparator = formatter.getDecimalFormatSymbols().getGroupingSeparator();
+        if (amount.indexOf(groupingSeparator) >= 0) {
+            throw new ParseException("Grouping separator not allowed", amount.indexOf(groupingSeparator));
+        }
+        return parse(amount, false);
+    }
+
+    private static BigDecimal parse(String amount, boolean groupingUsed) throws ParseException {
         DecimalFormat formatter = (DecimalFormat) NumberFormat.getNumberInstance();
         formatter.setParseBigDecimal(true);
+        formatter.setGroupingUsed(groupingUsed);
         ParsePosition parsePosition = new ParsePosition(0);
         BigDecimal parsedAmount = (BigDecimal) formatter.parse(amount, parsePosition);
 

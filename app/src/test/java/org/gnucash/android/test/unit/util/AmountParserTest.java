@@ -57,6 +57,33 @@ public class AmountParserTest {
     }
 
     @Test
+    public void parseStrict_acceptsLocaleDecimalSeparator() throws ParseException {
+        assertThat(AmountParser.parseStrict("3.50")).isEqualByComparingTo(new BigDecimal("3.50"));
+
+        Locale.setDefault(Locale.GERMANY);
+        assertThat(AmountParser.parseStrict("3,50")).isEqualByComparingTo(new BigDecimal("3.50"));
+    }
+
+    @Test(expected = ParseException.class)
+    public void parseStrict_rejectsGroupingSeparatorInsteadOfSilentlyMisparsing() throws ParseException {
+        // lenient parse would read "3.50" in a comma-decimal locale as the grouped integer 350
+        Locale.setDefault(Locale.GERMANY);
+        AmountParser.parseStrict("3.50");
+    }
+
+    @Test(expected = ParseException.class)
+    public void parseStrict_rejectsGroupingSeparatorInUsLocale() throws ParseException {
+        AmountParser.parseStrict("3,50");
+    }
+
+    @Test
+    public void parseStrict_reparsesFormatOutput() throws ParseException {
+        Locale.setDefault(Locale.GERMANY);
+        String formatted = AmountParser.format(new BigDecimal("1234.50"), 2);
+        assertThat(AmountParser.parseStrict(formatted)).isEqualByComparingTo(new BigDecimal("1234.50"));
+    }
+
+    @Test
     public void format_usesLocaleSeparator_andReparses() throws ParseException {
         Locale.setDefault(Locale.GERMANY);
         String formatted = AmountParser.format(new BigDecimal("3.50"), 2);

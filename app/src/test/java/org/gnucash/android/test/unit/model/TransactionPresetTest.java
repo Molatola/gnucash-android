@@ -131,6 +131,102 @@ public class TransactionPresetTest {
     }
 
     @Test
+    public void store_persistPreservesUnparseableEntries() throws Exception {
+        TransactionPreset valid = new TransactionPreset();
+        valid.setLabel("Good");
+        valid.setFromAccountUID("a");
+        valid.setToAccountUID("b");
+
+        JSONArray array = new JSONArray();
+        array.put(valid.toJson());
+        array.put("not-an-object");
+        array.put(new JSONObject().put("id", "bad").put("directionOverride", "NOT_A_TYPE"));
+        mPreferences.edit().putString(TransactionPresetStore.PREFS_KEY, array.toString()).commit();
+
+        TransactionPreset added = new TransactionPreset();
+        added.setLabel("New");
+        added.setFromAccountUID("x");
+        added.setToAccountUID("y");
+        assertThat(mStore.add(added)).isTrue();
+
+        // corrupt entries must survive the rewrite verbatim
+        String stored = mPreferences.getString(TransactionPresetStore.PREFS_KEY, null);
+        JSONArray storedArray = new JSONArray(stored);
+        assertThat(storedArray.length()).isEqualTo(4);
+        assertThat(stored).contains("not-an-object");
+        assertThat(stored).contains("NOT_A_TYPE");
+
+        // a fresh store still parses only the valid presets
+        TransactionPresetStore reloaded = new TransactionPresetStore(mPreferences);
+        assertThat(reloaded.loadAll()).hasSize(2);
+    }
+
+    @Test
+    public void store_findById_returnsDefensiveCopy() {
+        TransactionPreset preset = new TransactionPreset();
+        preset.setLabel("Original");
+        preset.setFromAccountUID("a");
+        preset.setToAccountUID("b");
+        assertThat(mStore.add(preset)).isTrue();
+
+        TransactionPreset found = mStore.findById(preset.getId());
+        found.setLabel("Mutated without update()");
+
+        assertThat(mStore.findById(preset.getId()).getLabel()).isEqualTo("Original");
+        assertThat(mStore.loadAll().get(0).getLabel()).isEqualTo("Original");
+    }
+
+    @Test
+    public void store_add_doesNotAliasCallerInstance() {
+        TransactionPreset preset = new TransactionPreset();
+        preset.setLabel("Original");
+        preset.setFromAccountUID("a");
+        preset.setToAccountUID("b");
+        assertThat(mStore.add(preset)).isTrue();
+
+        preset.setLabel("Mutated after add()");
+
+        assertThat(mStore.findById(preset.getId()).getLabel()).isEqualTo("Original");
+    }
+
+    @Test
+    public void fromJson_nullId_generatesFreshIdInsteadOfLiteralNullString() throws Exception {
+        JSONObject json = new JSONObject()
+                .put("id", JSONObject.NULL)
+                .put("fromAccountUid", "a")
+                .put("toAccountUid", "b");
+
+        TransactionPreset first = TransactionPreset.fromJson(json);
+        TransactionPreset second = TransactionPreset.fromJson(json);
+
+        assertThat(first.getId()).isNotEqualTo("null");
+        assertThat(first.getId()).isNotEmpty();
+        // distinct generated IDs, so two such presets cannot collide in the store
+        assertThat(first.getId()).isNotEqualTo(second.getId());
+    }
+
+    @Test
+    public void copy_isIndependentOfOriginal() {
+        TransactionPreset preset = new TransactionPreset();
+        preset.setLabel("Coffee");
+        preset.setFromAccountUID("cash");
+        preset.setToAccountUID("expense");
+        preset.setAmount("3.50");
+        preset.setDirectionOverride(TransactionType.CREDIT);
+
+        TransactionPreset copy = preset.copy();
+        assertThat(copy.getId()).isEqualTo(preset.getId());
+        assertThat(copy.getLabel()).isEqualTo("Coffee");
+        assertThat(copy.getAmount()).isEqualTo("3.50");
+        assertThat(copy.getDirectionOverride()).isEqualTo(TransactionType.CREDIT);
+
+        copy.setLabel("Tea");
+        copy.setAmount("9.99");
+        assertThat(preset.getLabel()).isEqualTo("Coffee");
+        assertThat(preset.getAmount()).isEqualTo("3.50");
+    }
+
+    @Test
     public void store_findById_afterAdd_keepsSiblings() {
         TransactionPreset a = new TransactionPreset();
         a.setLabel("A");

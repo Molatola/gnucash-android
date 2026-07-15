@@ -107,6 +107,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
     private boolean mDirectionUserOverridden;
     private boolean mUpdatingSpinners;
     private boolean mExtraSettingsExpanded;
+    private boolean mSaving;
     private String mEditingPresetId;
 
     @Override
@@ -137,6 +138,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         if (savedInstanceState != null) {
             restoreState(savedInstanceState);
         } else {
+            applyDefaultTransferAccount(getSelectedAccountUID(mFromAccountSpinner));
             applyDirectionDefault();
         }
     }
@@ -242,6 +244,8 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
                     refreshToAccountSpinner(fromUID);
                     if (previouslySelectedTo != null && !previouslySelectedTo.equals(fromUID)) {
                         selectAccount(mToAccountSpinner, mToAdapter, previouslySelectedTo);
+                    } else {
+                        applyDefaultTransferAccount(fromUID);
                     }
                 }
                 mDirectionUserOverridden = false;
@@ -310,7 +314,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
             button.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    applyPreset(preset);
+                    fillFromPreset(preset);
                 }
             });
             button.setOnLongClickListener(new View.OnLongClickListener() {
@@ -353,8 +357,25 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         return 2;
     }
 
-    private void applyPreset(TransactionPreset preset) {
+    /**
+     * Fills the form from a preset without arming edit mode: a later
+     * "Save as button" creates a new preset instead of overwriting this one.
+     */
+    private void fillFromPreset(TransactionPreset preset) {
+        mEditingPresetId = null;
+        populateFromPreset(preset);
+    }
+
+    /**
+     * Fills the form from a preset and arms edit mode so "Save as button"
+     * updates this preset in place.
+     */
+    private void editPreset(TransactionPreset preset) {
         mEditingPresetId = preset.getId();
+        populateFromPreset(preset);
+    }
+
+    private void populateFromPreset(TransactionPreset preset) {
         mUpdatingSpinners = true;
         boolean fromFound = selectAccount(mFromAccountSpinner, mFromAdapter, preset.getFromAccountUID());
         boolean toFound = true;
@@ -385,7 +406,10 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         mDescriptionEditText.setText(preset.getDescription());
         mNotesEditText.setText(preset.getNotes());
 
-        if (preset.getDirectionOverride() != null) {
+        if (fromMissing || toMissing) {
+            // don't apply the preset's direction against a stale spinner selection;
+            // the toast above asks the user to re-choose accounts
+        } else if (preset.getDirectionOverride() != null) {
             AccountType fromType = getSelectedAccountType(mFromAccountSpinner);
             mDirectionSwitch.setAccountType(fromType);
             mDirectionSwitch.setChecked(preset.getDirectionOverride());
@@ -415,11 +439,11 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         if (which == 0) {
-                            applyPreset(preset);
+                            editPreset(preset);
                         } else if (which == 1) {
                             if (!mPresetStore.delete(preset.getId())) {
                                 Toast.makeText(TransactionPresetOverlayActivity.this,
-                                        R.string.toast_preset_save_failed, Toast.LENGTH_SHORT).show();
+                                        R.string.toast_preset_delete_failed, Toast.LENGTH_SHORT).show();
                                 return;
                             }
                             if (preset.getId().equals(mEditingPresetId)) {
@@ -432,6 +456,33 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
                     }
                 })
                 .show();
+    }
+
+    /**
+     * Preselects the "to" account from the from-account's default transfer account,
+     * walking up the parent chain like the full transaction form does.
+     */
+    private void applyDefaultTransferAccount(String fromUID) {
+        if (!mUseDoubleEntry || fromUID == null) {
+            return;
+        }
+        try {
+            String rootUID = mAccountsDbAdapter.getOrCreateGnuCashRootAccountUID();
+            String currentUID = fromUID;
+            while (currentUID != null && !currentUID.equals(rootUID)) {
+                long defaultTransferId =
+                        mAccountsDbAdapter.getDefaultTransferAccountID(mAccountsDbAdapter.getID(currentUID));
+                if (defaultTransferId > 0) {
+                    mUpdatingSpinners = true;
+                    selectAccount(mToAccountSpinner, mToAdapter, mAccountsDbAdapter.getUID(defaultTransferId));
+                    mUpdatingSpinners = false;
+                    return;
+                }
+                currentUID = mAccountsDbAdapter.getParentAccountUID(currentUID);
+            }
+        } catch (IllegalArgumentException ignored) {
+            // account chain changed underfoot; keep the current selection
+        }
     }
 
     private void applyDirectionDefault() {
@@ -504,7 +555,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
             preset.setAmount(null);
         } else {
             try {
-                BigDecimal amount = AmountParser.parse(amountText);
+                BigDecimal amount = AmountParser.parseStrict(amountText);
                 preset.setAmount(amount.abs().toPlainString());
             } catch (ParseException e) {
                 Toast.makeText(this, R.string.toast_invalid_amount, Toast.LENGTH_SHORT).show();
@@ -519,9 +570,6 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         }
 
         boolean saved = isEditingExisting ? mPresetStore.update(preset) : mPresetStore.add(preset);
-        if (saved && !isEditingExisting) {
-            mEditingPresetId = preset.getId();
-        }
         if (!saved) {
             Toast.makeText(this, R.string.toast_preset_save_failed, Toast.LENGTH_SHORT).show();
             return;
@@ -531,6 +579,9 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
     }
 
     private void saveTransaction() {
+        if (mSaving) {
+            return;
+        }
         String fromUID = getSelectedAccountUID(mFromAccountSpinner);
         if (fromUID == null) {
             Toast.makeText(this, R.string.toast_select_from_account, Toast.LENGTH_SHORT).show();
@@ -545,7 +596,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
 
         BigDecimal amount;
         try {
-            amount = AmountParser.parse(amountText);
+            amount = AmountParser.parseStrict(amountText);
         } catch (ParseException e) {
             Toast.makeText(this, R.string.toast_invalid_amount, Toast.LENGTH_SHORT).show();
             return;
@@ -555,7 +606,13 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
             return;
         }
 
-        Commodity commodity = mAccountsDbAdapter.getRecord(fromUID).getCommodity();
+        Commodity commodity;
+        try {
+            commodity = mAccountsDbAdapter.getRecord(fromUID).getCommodity();
+        } catch (IllegalArgumentException e) {
+            Toast.makeText(this, R.string.toast_account_no_longer_exists, Toast.LENGTH_LONG).show();
+            return;
+        }
 
         String toUID;
         if (mUseDoubleEntry) {
@@ -568,7 +625,13 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
                 Toast.makeText(this, R.string.toast_from_to_must_differ, Toast.LENGTH_SHORT).show();
                 return;
             }
-            Commodity toCommodity = mAccountsDbAdapter.getRecord(toUID).getCommodity();
+            Commodity toCommodity;
+            try {
+                toCommodity = mAccountsDbAdapter.getRecord(toUID).getCommodity();
+            } catch (IllegalArgumentException e) {
+                Toast.makeText(this, R.string.toast_account_no_longer_exists, Toast.LENGTH_LONG).show();
+                return;
+            }
             if (!commodity.equals(toCommodity)) {
                 Toast.makeText(this, R.string.toast_quick_tx_multi_currency, Toast.LENGTH_LONG).show();
                 return;
@@ -592,6 +655,8 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
                 toUID,
                 mDirectionSwitch.getTransactionType());
 
+        mSaving = true;
+        mSaveButton.setEnabled(false);
         mTransactionsDbAdapter.addRecord(transaction, DatabaseAdapter.UpdateMethod.insert);
         WidgetConfigurationActivity.updateAllWidgets(getApplicationContext());
         Toast.makeText(this, R.string.toast_transaction_saved, Toast.LENGTH_SHORT).show();

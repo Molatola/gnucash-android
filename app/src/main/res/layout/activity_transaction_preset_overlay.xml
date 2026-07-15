@@ -14,7 +14,12 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="true">
+
+<LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:minWidth="320dp"
@@ -54,6 +59,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
+        android:labelFor="@+id/input_from_account"
         android:text="@string/label_from_account"
         style="@style/TextAppearance.EditTransaction_LabelSmall" />
 
@@ -73,6 +79,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:labelFor="@+id/input_to_account"
             android:text="@string/label_to_account"
             style="@style/TextAppearance.EditTransaction_LabelSmall" />
 
@@ -90,11 +97,13 @@
         android:orientation="horizontal"
         android:paddingTop="4dp">
 
+        <!-- digits allows both decimal separators; parsing is locale-strict (AmountParser.parseStrict) -->
         <EditText
             android:id="@+id/input_preset_amount"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:digits="0123456789.,"
             android:hint="@string/label_transaction_amount"
             android:inputType="numberDecimal"
             android:singleLine="true" />
@@ -113,6 +122,9 @@
         android:id="@+id/label_extra_settings"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
         android:paddingBottom="8dp"
         android:paddingTop="12dp"
         android:text="@string/label_extra_settings_collapsed"
@@ -160,3 +172,4 @@
 
     <include layout="@layout/default_buttons" />
 </LinearLayout>
+</ScrollView>

@@ -525,6 +525,8 @@
     <string name="toast_invalid_amount">Invalid amount</string>
     <string name="toast_quick_tx_multi_currency">Quick entry supports one currency. Use the full transaction form for currency conversion.</string>
     <string name="toast_preset_save_failed">Could not save preset button</string>
+    <string name="toast_preset_delete_failed">Could not delete preset button</string>
+    <string name="toast_account_no_longer_exists">Selected account no longer exists</string>
     <string name="toast_preset_account_missing">Some accounts for this preset are missing. Choose accounts and save again.</string>
     <string name="label_widget_quick_transaction">Quick transaction</string>
 </resources>
