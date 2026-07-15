@@ -28,7 +28,6 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Persists {@link TransactionPreset} button customizations in book-scoped SharedPreferences.
@@ -147,8 +146,7 @@ public class TransactionPresetStore {
      * @return {@code true} if the preset was written, {@code false} on serialization failure
      */
     public boolean add(@NonNull TransactionPreset preset) {
-        ensureLoaded().put(preset.getId(), preset);
-        return persist();
+        return upsert(preset);
     }
 
     /**
@@ -157,6 +155,15 @@ public class TransactionPresetStore {
      * @return {@code true} if the preset was written, {@code false} on serialization failure
      */
     public boolean update(@NonNull TransactionPreset preset) {
+        return upsert(preset);
+    }
+
+    /**
+     * Inserts or replaces the cached preset with a matching ID, then persists the cache.
+     * @param preset Preset to add or update
+     * @return {@code true} if the preset was written, {@code false} on serialization failure
+     */
+    private boolean upsert(@NonNull TransactionPreset preset) {
         ensureLoaded().put(preset.getId(), preset);
         return persist();
     }
