@@ -55,4 +55,18 @@ public class AmountParserTest {
     public void emptyString_shouldFailWithException() throws ParseException {
         AmountParser.parse("");
     }
+
+    @Test
+    public void format_usesLocaleSeparator_andReparses() throws ParseException {
+        Locale.setDefault(Locale.GERMANY);
+        String formatted = AmountParser.format(new BigDecimal("3.50"), 2);
+        assertThat(formatted).contains(",");
+        assertThat(AmountParser.parse(formatted)).isEqualByComparingTo(new BigDecimal("3.50"));
+    }
+
+    @Test
+    public void format_dropsGroupingSeparators() {
+        Locale.setDefault(Locale.US);
+        assertThat(AmountParser.format(new BigDecimal("1234.50"), 2)).isEqualTo("1234.5");
+    }
 }
