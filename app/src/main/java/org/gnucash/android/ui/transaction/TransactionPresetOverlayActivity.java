@@ -600,7 +600,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
 
     private String getSelectedAccountUID(Spinner spinner) {
         long id = spinner.getSelectedItemId();
-        if (id <= 0) {
+        if (id == AdapterView.INVALID_ROW_ID) {
             return null;
         }
         try {
