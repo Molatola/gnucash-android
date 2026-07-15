@@ -26,12 +26,14 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Persists {@link TransactionPreset} button customizations in book-scoped SharedPreferences.
- * <p>No database tables are used.</p>
+ * <p>No database tables are used. Presets are cached in-memory as an ordered
+ * ID-to-preset map so lookups and mutations avoid re-parsing the stored JSON.</p>
  */
 public class TransactionPresetStore {
 
@@ -39,6 +41,12 @@ public class TransactionPresetStore {
     private static final String LOG_TAG = "TransactionPresetStore";
 
     private final SharedPreferences mPreferences;
+
+    /**
+     * Ordered cache of presets keyed by ID. {@code null} until first loaded.
+     */
+    @Nullable
+    private LinkedHashMap<String, TransactionPreset> mPresetsById;
 
     /**
      * @param preferences Book-scoped preferences used to persist presets
@@ -57,92 +65,112 @@ public class TransactionPresetStore {
     }
 
     /**
+     * Loads and caches the stored presets, keeping their insertion order.
+     * <p>A corrupt top-level document yields an empty map; individual entries that
+     * fail to parse are logged and skipped so one bad preset cannot hide the rest.</p>
+     * @return Ordered ID-to-preset cache (never {@code null})
+     */
+    @NonNull
+    private LinkedHashMap<String, TransactionPreset> ensureLoaded() {
+        if (mPresetsById != null) {
+            return mPresetsById;
+        }
+        LinkedHashMap<String, TransactionPreset> presets = new LinkedHashMap<>();
+        String json = mPreferences.getString(PREFS_KEY, null);
+        if (json != null && !json.isEmpty()) {
+            try {
+                JSONArray array = new JSONArray(json);
+                for (int i = 0; i < array.length(); i++) {
+                    JSONObject object = array.optJSONObject(i);
+                    if (object == null) {
+                        continue;
+                    }
+                    try {
+                        TransactionPreset preset = TransactionPreset.fromJson(object);
+                        presets.put(preset.getId(), preset);
+                    } catch (JSONException | IllegalArgumentException e) {
+                        Log.w(LOG_TAG, "Skipping unparseable transaction preset at index " + i, e);
+                    }
+                }
+            } catch (JSONException e) {
+                Log.w(LOG_TAG, "Failed to parse transaction presets; returning empty list", e);
+            }
+        }
+        mPresetsById = presets;
+        return presets;
+    }
+
+    /**
      * Loads all presets, or an empty list if none are stored / parsing fails.
-     * @return Mutable list of presets (never {@code null})
+     * @return Mutable list of presets in stored order (never {@code null})
      */
     @NonNull
     public List<TransactionPreset> loadAll() {
-        String json = mPreferences.getString(PREFS_KEY, null);
-        if (json == null || json.isEmpty()) {
-            return new ArrayList<>();
-        }
+        return new ArrayList<>(ensureLoaded().values());
+    }
+
+    /**
+     * Serializes the current cache to SharedPreferences.
+     * @return {@code true} if the presets were written, {@code false} on serialization failure
+     */
+    private boolean persist() {
+        JSONArray array = new JSONArray();
         try {
-            JSONArray array = new JSONArray(json);
-            List<TransactionPreset> presets = new ArrayList<>(array.length());
-            for (int i = 0; i < array.length(); i++) {
-                JSONObject object = array.optJSONObject(i);
-                if (object != null) {
-                    presets.add(TransactionPreset.fromJson(object));
-                }
+            for (TransactionPreset preset : ensureLoaded().values()) {
+                array.put(preset.toJson());
             }
-            return presets;
-        } catch (JSONException | IllegalArgumentException e) {
-            Log.w(LOG_TAG, "Failed to parse transaction presets; returning empty list", e);
-            return new ArrayList<>();
+        } catch (JSONException e) {
+            Log.e(LOG_TAG, "Failed to serialize transaction presets", e);
+            return false;
         }
+        mPreferences.edit().putString(PREFS_KEY, array.toString()).apply();
+        return true;
     }
 
     /**
      * Replaces the stored preset list with {@code presets}.
      * @param presets Presets to persist
+     * @return {@code true} if the presets were written, {@code false} on serialization failure
      */
-    public void saveAll(@NonNull List<TransactionPreset> presets) {
-        JSONArray array = new JSONArray();
-        try {
-            for (TransactionPreset preset : presets) {
-                array.put(preset.toJson());
-            }
-            mPreferences.edit().putString(PREFS_KEY, array.toString()).apply();
-        } catch (JSONException e) {
-            Log.e(LOG_TAG, "Failed to serialize transaction presets", e);
+    public boolean saveAll(@NonNull List<TransactionPreset> presets) {
+        LinkedHashMap<String, TransactionPreset> map = new LinkedHashMap<>();
+        for (TransactionPreset preset : presets) {
+            map.put(preset.getId(), preset);
         }
+        mPresetsById = map;
+        return persist();
     }
 
     /**
      * Appends a preset to the stored list.
      * @param preset Preset to add
+     * @return {@code true} if the preset was written, {@code false} on serialization failure
      */
-    public void add(@NonNull TransactionPreset preset) {
-        List<TransactionPreset> presets = loadAll();
-        presets.add(preset);
-        saveAll(presets);
+    public boolean add(@NonNull TransactionPreset preset) {
+        ensureLoaded().put(preset.getId(), preset);
+        return persist();
     }
 
     /**
      * Updates a preset with a matching ID, or appends it if not found.
      * @param preset Preset to update
+     * @return {@code true} if the preset was written, {@code false} on serialization failure
      */
-    public void update(@NonNull TransactionPreset preset) {
-        List<TransactionPreset> presets = loadAll();
-        for (int i = 0; i < presets.size(); i++) {
-            if (presets.get(i).getId().equals(preset.getId())) {
-                presets.set(i, preset);
-                saveAll(presets);
-                return;
-            }
-        }
-        presets.add(preset);
-        saveAll(presets);
+    public boolean update(@NonNull TransactionPreset preset) {
+        ensureLoaded().put(preset.getId(), preset);
+        return persist();
     }
 
     /**
      * Deletes the preset with the given ID.
      * @param presetId ID of the preset to remove
-     * @return {@code true} if a preset was removed, {@code false} otherwise
+     * @return {@code true} if a preset was removed and persisted, {@code false} otherwise
      */
     public boolean delete(@NonNull String presetId) {
-        List<TransactionPreset> presets = loadAll();
-        boolean removed = false;
-        for (int i = presets.size() - 1; i >= 0; i--) {
-            if (presets.get(i).getId().equals(presetId)) {
-                presets.remove(i);
-                removed = true;
-            }
+        if (ensureLoaded().remove(presetId) == null) {
+            return false;
         }
-        if (removed) {
-            saveAll(presets);
-        }
-        return removed;
+        return persist();
     }
 
     /**
@@ -152,19 +180,6 @@ public class TransactionPresetStore {
      */
     @Nullable
     public TransactionPreset findById(@NonNull String presetId) {
-        for (TransactionPreset preset : loadAll()) {
-            if (preset.getId().equals(presetId)) {
-                return preset;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Returns an unmodifiable snapshot of stored presets.
-     */
-    @NonNull
-    public List<TransactionPreset> getPresetsSnapshot() {
-        return Collections.unmodifiableList(loadAll());
+        return ensureLoaded().get(presetId);
     }
 }

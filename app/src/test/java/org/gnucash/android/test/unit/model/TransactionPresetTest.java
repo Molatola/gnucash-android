@@ -7,6 +7,7 @@ import org.gnucash.android.model.TransactionPresetStore;
 import org.gnucash.android.model.TransactionType;
 import org.gnucash.android.test.unit.testutil.ShadowCrashlytics;
 import org.gnucash.android.test.unit.testutil.ShadowUserVoice;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
@@ -109,5 +110,46 @@ public class TransactionPresetTest {
     public void store_corruptJson_returnsEmptyList() {
         mPreferences.edit().putString(TransactionPresetStore.PREFS_KEY, "{not-json").commit();
         assertThat(mStore.loadAll()).isEmpty();
+    }
+
+    @Test
+    public void store_skipsUnparseableEntries_keepsValid() throws Exception {
+        TransactionPreset valid = new TransactionPreset();
+        valid.setLabel("Good");
+        valid.setFromAccountUID("a");
+        valid.setToAccountUID("b");
+
+        JSONArray array = new JSONArray();
+        array.put(valid.toJson());
+        array.put("not-an-object");
+        array.put(new JSONObject().put("id", "bad").put("directionOverride", "NOT_A_TYPE"));
+        mPreferences.edit().putString(TransactionPresetStore.PREFS_KEY, array.toString()).commit();
+
+        List<TransactionPreset> loaded = mStore.loadAll();
+        assertThat(loaded).hasSize(1);
+        assertThat(loaded.get(0).getLabel()).isEqualTo("Good");
+    }
+
+    @Test
+    public void store_findById_afterAdd_keepsSiblings() {
+        TransactionPreset a = new TransactionPreset();
+        a.setLabel("A");
+        a.setFromAccountUID("x");
+        a.setToAccountUID("y");
+        TransactionPreset b = new TransactionPreset();
+        b.setLabel("B");
+        b.setFromAccountUID("x");
+        b.setToAccountUID("z");
+
+        assertThat(mStore.add(a)).isTrue();
+        assertThat(mStore.add(b)).isTrue();
+
+        assertThat(mStore.findById(a.getId()).getLabel()).isEqualTo("A");
+        assertThat(mStore.findById(b.getId()).getLabel()).isEqualTo("B");
+        assertThat(mStore.loadAll()).hasSize(2);
+
+        assertThat(mStore.delete(a.getId())).isTrue();
+        assertThat(mStore.findById(a.getId())).isNull();
+        assertThat(mStore.findById(b.getId())).isNotNull();
     }
 }
