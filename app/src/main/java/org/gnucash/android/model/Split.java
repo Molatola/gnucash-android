@@ -241,8 +241,9 @@ public class Split extends BaseModel implements Parcelable{
 
     /**
      * Creates a split which is a pair of this instance.
-     * A pair split has all the same attributes except that the SplitType is inverted and it belongs
-     * to another account.
+     * A pair split has the same value and memo, inverted {@link TransactionType},
+     * and belongs to another account. Quantity defaults to the value (same-currency).
+     * For multi-currency transfers, use {@link #createPair(String, Money)}.
      * @param accountUID GUID of account
      * @return New split pair of current split
      * @see TransactionType#invert()
@@ -252,7 +253,18 @@ public class Split extends BaseModel implements Parcelable{
         pair.setType(mSplitType.invert());
         pair.setMemo(mMemo);
         pair.setTransactionUID(mTransactionUID);
-        pair.setQuantity(mQuantity);
+        return pair;
+    }
+
+    /**
+     * Creates a pair split with an explicit quantity (for multi-currency transfers).
+     * @param accountUID GUID of the transfer account
+     * @param quantity Amount in the transfer account's commodity
+     * @return New split pair of current split
+     */
+    public Split createPair(String accountUID, Money quantity){
+        Split pair = createPair(accountUID);
+        pair.setQuantity(quantity);
         return pair;
     }
 
@@ -272,9 +284,9 @@ public class Split extends BaseModel implements Parcelable{
     }
 
     /**
-     * Checks is this <code>other</code> is a pair split of this.
+     * Checks if this <code>other</code> is a pair split of this.
      * <p>Two splits are considered a pair if they have the same amount and
-     * opposite split types</p>
+     * opposite split types (quantity and account are not compared).</p>
      * @param other the other split of the pair to be tested
      * @return whether the two splits are a pair
      */

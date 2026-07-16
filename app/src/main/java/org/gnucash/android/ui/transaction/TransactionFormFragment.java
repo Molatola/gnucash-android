@@ -566,17 +566,10 @@ public class TransactionFormFragment extends Fragment implements
         mAmountEditText.setCommodity(commodity);
 
         if (mUseDoubleEntry){
-            String currentAccountUID = mAccountUID;
-            long defaultTransferAccountID;
-            String rootAccountUID = mAccountsDbAdapter.getOrCreateGnuCashRootAccountUID();
-            do {
-                defaultTransferAccountID = mAccountsDbAdapter.getDefaultTransferAccountID(mAccountsDbAdapter.getID(currentAccountUID));
-                if (defaultTransferAccountID > 0) {
-                    setSelectedTransferAccount(defaultTransferAccountID);
-                    break; //we found a parent with default transfer setting
-                }
-                currentAccountUID = mAccountsDbAdapter.getParentAccountUID(currentAccountUID);
-            } while (!currentAccountUID.equals(rootAccountUID));
+            long defaultTransferAccountID = mAccountsDbAdapter.findInheritedDefaultTransferAccountId(mAccountUID);
+            if (defaultTransferAccountID > 0) {
+                setSelectedTransferAccount(defaultTransferAccountID);
+            }
         }
 	}
 
@@ -744,12 +737,13 @@ public class TransactionFormFragment extends Fragment implements
             split2.setValue(value);
             split2.setQuantity(quantity);
             split2.setAccountUID(transferAcctUID);
+            split1.setType(mTransactionTypeSwitch.getTransactionType());
+            split2.setType(mTransactionTypeSwitch.getTransactionType().invert());
         } else {
             split1 = new Split(value, mAccountUID);
-            split2 = new Split(value, quantity, transferAcctUID);
+            split1.setType(mTransactionTypeSwitch.getTransactionType());
+            split2 = split1.createPair(transferAcctUID, quantity);
         }
-        split1.setType(mTransactionTypeSwitch.getTransactionType());
-        split2.setType(mTransactionTypeSwitch.getTransactionType().invert());
 
         List<Split> splitList = new ArrayList<>();
         splitList.add(split1);

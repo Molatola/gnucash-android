@@ -41,10 +41,7 @@ import org.gnucash.android.ui.common.FormActivity;
 import org.gnucash.android.util.AmountParser;
 
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
 import java.text.ParseException;
-import java.util.Locale;
 
 /**
  * A custom EditText which supports computations and uses a custom calculator keyboard.
@@ -322,13 +319,9 @@ public class CalculatorEditText extends AppCompatEditText {
      * @param amount BigDecimal amount
      */
     public void setValue(BigDecimal amount){
-        BigDecimal newAmount = amount.setScale(mCommodity.getSmallestFractionDigits(), BigDecimal.ROUND_HALF_EVEN);
-
-        DecimalFormat formatter = (DecimalFormat) NumberFormat.getInstance(Locale.getDefault());
-        formatter.setMinimumFractionDigits(0);
-        formatter.setMaximumFractionDigits(mCommodity.getSmallestFractionDigits());
-        formatter.setGroupingUsed(false);
-        String resultString = formatter.format(newAmount.doubleValue());
+        int fractionDigits = mCommodity.getSmallestFractionDigits();
+        BigDecimal newAmount = amount.setScale(fractionDigits, BigDecimal.ROUND_HALF_EVEN);
+        String resultString = AmountParser.format(newAmount, fractionDigits);
 
         super.setText(resultString);
         setSelection(resultString.length());

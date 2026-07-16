@@ -34,9 +34,6 @@ import java.util.List;
  * <p>No database tables are used, which means presets are <b>not</b> included in
  * GncXml book backups/exports and are not restored with a book — they live and die
  * with the book's SharedPreferences, like other book-local UI settings.</p>
- * <p>Presets are cached in-memory as an ordered ID-to-preset map so lookups and
- * mutations avoid re-parsing the stored JSON. The cache is only updated after a
- * successful write, and all presets returned to callers are defensive copies.</p>
  */
 public class TransactionPresetStore {
 
@@ -45,17 +42,9 @@ public class TransactionPresetStore {
 
     private final SharedPreferences mPreferences;
 
-    /**
-     * Ordered cache of presets keyed by ID. {@code null} until first loaded.
-     */
+    /** Ordered cache of presets keyed by ID. {@code null} until first loaded. */
     @Nullable
     private LinkedHashMap<String, TransactionPreset> mPresetsById;
-
-    /**
-     * Raw entries that failed to parse during load. They are re-appended verbatim on
-     * every persist so a corrupt entry is never silently dropped from storage.
-     */
-    private final List<Object> mUnparseableEntries = new ArrayList<>();
 
     /**
      * @param preferences Book-scoped preferences used to persist presets
@@ -75,9 +64,7 @@ public class TransactionPresetStore {
 
     /**
      * Loads and caches the stored presets, keeping their insertion order.
-     * <p>A corrupt top-level document yields an empty map; individual entries that
-     * fail to parse are logged and skipped so one bad preset cannot hide the rest.</p>
-     * @return Ordered ID-to-preset cache (never {@code null})
+     * Unparseable entries are skipped and dropped on the next persist.
      */
     @NonNull
     private LinkedHashMap<String, TransactionPreset> ensureLoaded() {
@@ -85,7 +72,6 @@ public class TransactionPresetStore {
             return mPresetsById;
         }
         LinkedHashMap<String, TransactionPreset> presets = new LinkedHashMap<>();
-        mUnparseableEntries.clear();
         String json = mPreferences.getString(PREFS_KEY, null);
         if (json != null && !json.isEmpty()) {
             try {
@@ -93,15 +79,14 @@ public class TransactionPresetStore {
                 for (int i = 0; i < array.length(); i++) {
                     JSONObject object = array.optJSONObject(i);
                     if (object == null) {
-                        mUnparseableEntries.add(array.opt(i));
+                        Log.w(LOG_TAG, "Skipping non-object transaction preset at index " + i);
                         continue;
                     }
                     try {
                         TransactionPreset preset = TransactionPreset.fromJson(object);
                         presets.put(preset.getId(), preset);
                     } catch (JSONException | IllegalArgumentException e) {
-                        Log.w(LOG_TAG, "Preserving unparseable transaction preset at index " + i, e);
-                        mUnparseableEntries.add(object);
+                        Log.w(LOG_TAG, "Skipping unparseable transaction preset at index " + i, e);
                     }
                 }
             } catch (JSONException e) {
@@ -126,11 +111,8 @@ public class TransactionPresetStore {
     }
 
     /**
-     * Serializes {@code presets} (plus any preserved unparseable entries) to
-     * SharedPreferences without touching the cache.
-     * <p>Uses {@code commit()} so the returned boolean reflects durable success.</p>
-     * @param presets Candidate preset map to write
-     * @return {@code true} if the presets were written, {@code false} on failure
+     * Serializes {@code presets} to SharedPreferences.
+     * @return {@code false} only if serialization fails; otherwise queues an {@code apply()}
      */
     private boolean persist(@NonNull LinkedHashMap<String, TransactionPreset> presets) {
         JSONArray array = new JSONArray();
@@ -142,15 +124,12 @@ public class TransactionPresetStore {
             Log.e(LOG_TAG, "Failed to serialize transaction presets", e);
             return false;
         }
-        for (Object rawEntry : mUnparseableEntries) {
-            array.put(rawEntry);
-        }
-        return mPreferences.edit().putString(PREFS_KEY, array.toString()).commit();
+        mPreferences.edit().putString(PREFS_KEY, array.toString()).apply();
+        return true;
     }
 
     /**
      * Replaces the stored preset list with {@code presets}.
-     * <p>Unparseable entries preserved from a previous load are kept in storage.</p>
      * @param presets Presets to persist
      * @return {@code true} if the presets were written, {@code false} on serialization failure
      */
@@ -185,13 +164,6 @@ public class TransactionPresetStore {
         return upsert(preset);
     }
 
-    /**
-     * Inserts or replaces the preset with a matching ID and persists the result.
-     * <p>The cache is only updated after a successful write, so a failed persist
-     * never leaves the in-memory state diverged from storage.</p>
-     * @param preset Preset to add or update (copied; the caller's instance is not retained)
-     * @return {@code true} if the preset was written, {@code false} on serialization failure
-     */
     private boolean upsert(@NonNull TransactionPreset preset) {
         LinkedHashMap<String, TransactionPreset> next = new LinkedHashMap<>(ensureLoaded());
         next.put(preset.getId(), preset.copy());
@@ -204,7 +176,6 @@ public class TransactionPresetStore {
 
     /**
      * Deletes the preset with the given ID.
-     * <p>The cache is only updated after a successful write.</p>
      * @param presetId ID of the preset to remove
      * @return {@code true} if a preset was removed and persisted, {@code false} otherwise
      */

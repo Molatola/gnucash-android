@@ -467,18 +467,11 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
             return;
         }
         try {
-            String rootUID = mAccountsDbAdapter.getOrCreateGnuCashRootAccountUID();
-            String currentUID = fromUID;
-            while (currentUID != null && !currentUID.equals(rootUID)) {
-                long defaultTransferId =
-                        mAccountsDbAdapter.getDefaultTransferAccountID(mAccountsDbAdapter.getID(currentUID));
-                if (defaultTransferId > 0) {
-                    mUpdatingSpinners = true;
-                    selectAccount(mToAccountSpinner, mToAdapter, mAccountsDbAdapter.getUID(defaultTransferId));
-                    mUpdatingSpinners = false;
-                    return;
-                }
-                currentUID = mAccountsDbAdapter.getParentAccountUID(currentUID);
+            long defaultTransferId = mAccountsDbAdapter.findInheritedDefaultTransferAccountId(fromUID);
+            if (defaultTransferId > 0) {
+                mUpdatingSpinners = true;
+                selectAccount(mToAccountSpinner, mToAdapter, mAccountsDbAdapter.getUID(defaultTransferId));
+                mUpdatingSpinners = false;
             }
         } catch (IllegalArgumentException ignored) {
             // account chain changed underfoot; keep the current selection

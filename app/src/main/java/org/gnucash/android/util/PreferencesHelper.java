@@ -15,10 +15,6 @@
  */
 package org.gnucash.android.util;
 
-import android.content.Context;
-import android.util.Log;
-
-import org.gnucash.android.app.GnuCashApplication;
 import org.gnucash.android.db.adapter.BooksDbAdapter;
 import org.gnucash.android.ui.settings.PreferenceActivity;
 
@@ -35,14 +31,12 @@ public final class PreferencesHelper {
     private PreferencesHelper() {}
 
     /**
-     * Tag for logging
-     */
-    private static final String LOG_TAG = "PreferencesHelper";
-
-    /**
      * Preference key for saving the last export time
      */
     public static final String PREFERENCE_LAST_EXPORT_TIME_KEY = "last_export_time";
+
+    private static final String EPOCH_ZERO_UTC =
+            TimestampHelper.getUtcStringFromTimestamp(TimestampHelper.getTimestampFromEpochZero());
 
     /**
      * Set the last export time in UTC time zone of the currently active Book in the application.
@@ -52,7 +46,6 @@ public final class PreferencesHelper {
      * @see #setLastExportTime(Timestamp, String)
      */
     public static void setLastExportTime(Timestamp lastExportTime) {
-        Log.v(LOG_TAG, "Saving last export time for the currently active book");
         setLastExportTime(lastExportTime, BooksDbAdapter.getInstance().getActiveBookUID());
     }
 
@@ -63,11 +56,10 @@ public final class PreferencesHelper {
      * @param lastExportTime the last export time to set.
      */
     public static void setLastExportTime(Timestamp lastExportTime, String bookUID) {
-        final String utcString = TimestampHelper.getUtcStringFromTimestamp(lastExportTime);
-        Log.d(LOG_TAG, "Storing '" + utcString + "' as lastExportTime in Android Preferences.");
-        GnuCashApplication.getAppContext().getSharedPreferences(bookUID, Context.MODE_PRIVATE)
+        PreferenceActivity.getBookSharedPreferences(bookUID)
                 .edit()
-                .putString(PREFERENCE_LAST_EXPORT_TIME_KEY, utcString)
+                .putString(PREFERENCE_LAST_EXPORT_TIME_KEY,
+                        TimestampHelper.getUtcStringFromTimestamp(lastExportTime))
                 .apply();
     }
 
@@ -77,11 +69,7 @@ public final class PreferencesHelper {
      * @return A {@link Timestamp} with the time.
      */
     public static Timestamp getLastExportTime() {
-        final String utcString = PreferenceActivity.getActiveBookSharedPreferences()
-                .getString(PREFERENCE_LAST_EXPORT_TIME_KEY,
-                        TimestampHelper.getUtcStringFromTimestamp(TimestampHelper.getTimestampFromEpochZero()));
-        Log.d(LOG_TAG, "Retrieving '" + utcString + "' as lastExportTime from Android Preferences.");
-        return TimestampHelper.getTimestampFromUtcString(utcString);
+        return getLastExportTime(BooksDbAdapter.getInstance().getActiveBookUID());
     }
 
     /**
@@ -90,13 +78,8 @@ public final class PreferencesHelper {
      * @return A {@link Timestamp} with the time.
      */
     public static Timestamp getLastExportTime(String bookUID) {
-        final String utcString =
-                GnuCashApplication.getAppContext()
-                .getSharedPreferences(bookUID, Context.MODE_PRIVATE)
-                .getString(PREFERENCE_LAST_EXPORT_TIME_KEY,
-                           TimestampHelper.getUtcStringFromTimestamp(
-                                TimestampHelper.getTimestampFromEpochZero()));
-        Log.d(LOG_TAG, "Retrieving '" + utcString + "' as lastExportTime from Android Preferences.");
+        final String utcString = PreferenceActivity.getBookSharedPreferences(bookUID)
+                .getString(PREFERENCE_LAST_EXPORT_TIME_KEY, EPOCH_ZERO_UTC);
         return TimestampHelper.getTimestampFromUtcString(utcString);
     }
 }

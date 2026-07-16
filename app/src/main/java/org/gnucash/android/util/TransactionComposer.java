@@ -65,8 +65,7 @@ public final class TransactionComposer {
         Split fromSplit = new Split(value, fromAccountUID);
         fromSplit.setType(fromTransactionType);
 
-        Split toSplit = new Split(value, toAccountUID);
-        toSplit.setType(fromTransactionType.invert());
+        Split toSplit = fromSplit.createPair(toAccountUID);
 
         Transaction transaction = new Transaction(description != null ? description : "");
         transaction.setTime(System.currentTimeMillis());

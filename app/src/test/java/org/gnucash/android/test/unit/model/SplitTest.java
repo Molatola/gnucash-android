@@ -75,8 +75,23 @@ public class SplitTest {
 
         assertThat(pair.getType()).isEqualTo(TransactionType.DEBIT);
         assertThat(pair.getValue()).isEqualTo(split.getValue());
+        assertThat(pair.getQuantity()).isEqualTo(split.getValue());
         assertThat(pair.getMemo()).isEqualTo(split.getMemo());
         assertThat(pair.getTransactionUID()).isEqualTo(split.getTransactionUID());
+        assertThat(pair.getAccountUID()).isEqualTo("test");
+    }
+
+    @Test
+    public void createPair_withExplicitQuantity_setsMultiCurrencyQuantity(){
+        Split split = new Split(new Money("2", "USD"), new Money("1.8", "EUR"), "usd-account");
+        split.setType(TransactionType.CREDIT);
+        Money eurQuantity = new Money("1.8", "EUR");
+        Split pair = split.createPair("eur-account", eurQuantity);
+
+        assertThat(pair.getType()).isEqualTo(TransactionType.DEBIT);
+        assertThat(pair.getValue()).isEqualTo(split.getValue());
+        assertThat(pair.getQuantity()).isEqualTo(eurQuantity);
+        assertThat(pair.getAccountUID()).isEqualTo("eur-account");
     }
 
     @Test

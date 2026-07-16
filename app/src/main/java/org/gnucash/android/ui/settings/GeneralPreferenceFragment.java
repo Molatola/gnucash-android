@@ -123,7 +123,7 @@ public class GeneralPreferenceFragment extends PreferenceFragmentCompat implemen
             getPreferenceManager().getSharedPreferences()
                     .edit()
                     .putBoolean(getString(R.string.key_use_account_color), Boolean.valueOf(newValue.toString()))
-                    .commit();
+                    .apply();
         }
         return true;
     }

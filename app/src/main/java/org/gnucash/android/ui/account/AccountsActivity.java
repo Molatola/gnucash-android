@@ -542,7 +542,7 @@ public class AccountsActivity extends BaseDrawerActivity implements OnAccountCli
         Context context = GnuCashApplication.getAppContext();
 		Editor editor = PreferenceManager.getDefaultSharedPreferences(context).edit();
 		editor.putBoolean(context.getString(R.string.key_first_run), false);
-		editor.commit();
+		editor.apply();
 	}
 
 }

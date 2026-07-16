@@ -131,7 +131,7 @@ public class TransactionPresetTest {
     }
 
     @Test
-    public void store_persistPreservesUnparseableEntries() throws Exception {
+    public void store_persistDropsUnparseableEntries() throws Exception {
         TransactionPreset valid = new TransactionPreset();
         valid.setLabel("Good");
         valid.setFromAccountUID("a");
@@ -149,14 +149,13 @@ public class TransactionPresetTest {
         added.setToAccountUID("y");
         assertThat(mStore.add(added)).isTrue();
 
-        // corrupt entries must survive the rewrite verbatim
+        // corrupt entries are dropped on rewrite; only valid presets remain
         String stored = mPreferences.getString(TransactionPresetStore.PREFS_KEY, null);
         JSONArray storedArray = new JSONArray(stored);
-        assertThat(storedArray.length()).isEqualTo(4);
-        assertThat(stored).contains("not-an-object");
-        assertThat(stored).contains("NOT_A_TYPE");
+        assertThat(storedArray.length()).isEqualTo(2);
+        assertThat(stored).doesNotContain("not-an-object");
+        assertThat(stored).doesNotContain("NOT_A_TYPE");
 
-        // a fresh store still parses only the valid presets
         TransactionPresetStore reloaded = new TransactionPresetStore(mPreferences);
         assertThat(reloaded.loadAll()).hasSize(2);
     }

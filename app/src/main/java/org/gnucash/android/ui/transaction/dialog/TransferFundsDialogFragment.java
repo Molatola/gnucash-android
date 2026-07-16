@@ -45,8 +45,6 @@ import org.gnucash.android.ui.transaction.TransactionsActivity;
 import org.gnucash.android.util.AmountParser;
 
 import java.math.BigDecimal;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
 import java.text.ParseException;
 
 import butterknife.BindView;
@@ -126,8 +124,8 @@ public class TransferFundsDialogFragment extends DialogFragment {
             // convertedAmount = mOriginAmount * numerator / denominator
             BigDecimal convertedAmount = mOriginAmount.asBigDecimal().multiply(numerator)
                 .divide(denominator, mTargetCommodity.getSmallestFractionDigits(), BigDecimal.ROUND_HALF_EVEN);
-            DecimalFormat formatter = (DecimalFormat) NumberFormat.getNumberInstance();
-            mConvertedAmountInput.setText(formatter.format(convertedAmount));
+            mConvertedAmountInput.setText(AmountParser.format(convertedAmount,
+                    mTargetCommodity.getSmallestFractionDigits()));
         }
 
         mExchangeRateInput.addTextChangedListener(textChangeListener);

@@ -272,17 +272,15 @@ public class GnuCashApplication extends MultiDexApplication {
     public static String getDefaultCurrencyCode(){
         Locale locale = getDefaultLocale();
 
-        String currencyCode = "USD"; //start with USD as the default
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        try { //there are some strange locales out there
-            currencyCode = Currency.getInstance(locale).getCurrencyCode();
-        } catch (Throwable e) {
+        String fallback = "USD";
+        try {
+            fallback = Currency.getInstance(locale).getCurrencyCode();
+        } catch (Exception e) {
             Crashlytics.logException(e);
             Log.e(context.getString(R.string.app_name), "" + e.getMessage());
-        } finally {
-            currencyCode = prefs.getString(context.getString(R.string.key_default_currency), currencyCode);
         }
-        return currencyCode;
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        return prefs.getString(context.getString(R.string.key_default_currency), fallback);
     }
 
     /**

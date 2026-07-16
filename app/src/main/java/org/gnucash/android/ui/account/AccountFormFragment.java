@@ -396,15 +396,10 @@ public class AccountFormFragment extends Fragment {
                 long doubleDefaultAccountId = mAccountsDbAdapter.getID(account.getDefaultTransferAccountUID());
                 setDefaultTransferAccountSelection(doubleDefaultAccountId, true);
             } else {
-                String currentAccountUID = account.getParentUID();
-                String rootAccountUID = mAccountsDbAdapter.getOrCreateGnuCashRootAccountUID();
-                while (!currentAccountUID.equals(rootAccountUID)) {
-                    long defaultTransferAccountID = mAccountsDbAdapter.getDefaultTransferAccountID(mAccountsDbAdapter.getID(currentAccountUID));
-                    if (defaultTransferAccountID > 0) {
-                        setDefaultTransferAccountSelection(defaultTransferAccountID, false);
-                        break; //we found a parent with default transfer setting
-                    }
-                    currentAccountUID = mAccountsDbAdapter.getParentAccountUID(currentAccountUID);
+                long defaultTransferAccountID =
+                        mAccountsDbAdapter.findInheritedDefaultTransferAccountId(account.getParentUID());
+                if (defaultTransferAccountID > 0) {
+                    setDefaultTransferAccountSelection(defaultTransferAccountID, false);
                 }
             }
         }

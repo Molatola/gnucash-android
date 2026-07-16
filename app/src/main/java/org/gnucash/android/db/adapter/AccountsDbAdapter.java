@@ -1070,6 +1070,29 @@ public class AccountsDbAdapter extends DatabaseAdapter<Account> {
     }
 
     /**
+     * Returns the default transfer account ID for {@code accountUID}, or the nearest
+     * ancestor that has one set. Walks from the account through parents until ROOT.
+     *
+     * @param accountUID Account to start from (inclusive)
+     * @return Record ID of the inherited default transfer account, or 0 if none
+     */
+    public long findInheritedDefaultTransferAccountId(String accountUID) {
+        if (accountUID == null) {
+            return 0;
+        }
+        String rootAccountUID = getOrCreateGnuCashRootAccountUID();
+        String currentAccountUID = accountUID;
+        while (currentAccountUID != null && !currentAccountUID.equals(rootAccountUID)) {
+            long defaultTransferAccountID = getDefaultTransferAccountID(getID(currentAccountUID));
+            if (defaultTransferAccountID > 0) {
+                return defaultTransferAccountID;
+            }
+            currentAccountUID = getParentAccountUID(currentAccountUID);
+        }
+        return 0;
+    }
+
+    /**
      * Returns the full account name including the account hierarchy (parent accounts)
      * @param accountUID Unique ID of account
      * @return Fully qualified (with parent hierarchy) account name
