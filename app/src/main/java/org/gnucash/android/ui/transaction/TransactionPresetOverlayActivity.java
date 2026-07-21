@@ -19,13 +19,14 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.database.Cursor;
 import android.os.Bundle;
-import android.view.LayoutInflater;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.v7.widget.ListPopupWindow;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
-import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -59,10 +60,11 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 
 /**
- * Dialog-style overlay for quick transaction entry with customizable preset buttons.
+ * Dialog-style overlay for quick transaction entry with customizable presets.
  * <p>Presets are stored in SharedPreferences — not in the database.</p>
  */
-public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
+public class TransactionPresetOverlayActivity extends PasscodeLockActivity
+        implements TransactionPresetAdapter.Listener {
 
     private static final String ACCOUNT_CONDITIONS =
             DatabaseSchema.AccountEntry.COLUMN_TYPE + " != ?"
@@ -80,7 +82,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
     private static final String STATE_FROM_UID = "from_uid";
     private static final String STATE_TO_UID = "to_uid";
 
-    @BindView(R.id.preset_buttons_container) LinearLayout mPresetButtonsContainer;
+    @BindView(R.id.preset_selector) TextView mPresetSelector;
     @BindView(R.id.input_from_account) Spinner mFromAccountSpinner;
     @BindView(R.id.input_to_account) Spinner mToAccountSpinner;
     @BindView(R.id.layout_to_account) View mToAccountLayout;
@@ -109,6 +111,8 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
     private boolean mExtraSettingsExpanded;
     private boolean mSaving;
     private String mEditingPresetId;
+    private TransactionPresetAdapter mPresetAdapter;
+    private ListPopupWindow mPresetPopup;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -199,6 +203,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         } else {
             applyDirectionDefault();
         }
+        updateDirectionColor(mDirectionSwitch.isChecked());
     }
 
     private void bindAccountSpinners() {
@@ -266,6 +271,14 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
                 if (!mUpdatingSpinners) {
                     mDirectionUserOverridden = true;
                 }
+                updateDirectionColor(isChecked);
+            }
+        });
+
+        mPresetSelector.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showPresetPopup();
             }
         });
 
@@ -302,37 +315,102 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         });
     }
 
-    private void refreshPresetButtons() {
-        mPresetButtonsContainer.removeAllViews();
-        LayoutInflater inflater = LayoutInflater.from(this);
-        List<TransactionPreset> presets = mPresetStore.loadAll();
-        for (final TransactionPreset preset : presets) {
-            Button button = (Button) inflater.inflate(R.layout.item_preset_button, mPresetButtonsContainer, false);
-            String fromName = safeAccountName(preset.getFromAccountUID());
-            String toName = safeAccountName(preset.getToAccountUID());
-            button.setText(preset.getDisplayLabel(fromName, toName));
-            button.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    fillFromPreset(preset);
-                }
-            });
-            button.setOnLongClickListener(new View.OnLongClickListener() {
-                @Override
-                public boolean onLongClick(View v) {
-                    showPresetActions(preset);
-                    return true;
-                }
-            });
-            mPresetButtonsContainer.addView(button);
-        }
+    private void updateDirectionColor(boolean isChecked) {
+        int color = android.support.v4.content.ContextCompat.getColor(
+                this, isChecked ? R.color.debit_red : R.color.credit_green);
+        mDirectionSwitch.setTextColor(color);
+        mAmountEditText.setTextColor(color);
+    }
 
+    private void refreshPresetButtons() {
+        List<TransactionPreset> presets = mPresetStore.loadAll();
+        mLabelEditText.setHint(generateDefaultPresetLabel(presets));
+        mPresetAdapter = new TransactionPresetAdapter(this, presets, this);
         if (presets.isEmpty()) {
-            TextView empty = new TextView(this);
-            empty.setText(R.string.label_no_presets);
-            empty.setPadding(8, 8, 8, 8);
-            mPresetButtonsContainer.addView(empty);
+            mPresetSelector.setText(R.string.label_no_presets);
+            mPresetSelector.setEnabled(false);
+        } else {
+            mPresetSelector.setText(R.string.label_select_preset);
+            mPresetSelector.setEnabled(true);
         }
+        if (mPresetPopup != null && mPresetPopup.isShowing()) {
+            mPresetPopup.setAdapter(mPresetAdapter);
+        }
+    }
+
+    private void showPresetPopup() {
+        if (mPresetAdapter == null || mPresetAdapter.getCount() == 0) {
+            return;
+        }
+        if (mPresetPopup == null) {
+            mPresetPopup = new ListPopupWindow(this);
+            mPresetPopup.setAnchorView(mPresetSelector);
+            mPresetPopup.setModal(true);
+            mPresetPopup.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                    TransactionPreset preset = mPresetAdapter.getItem(position);
+                    dismissPresetPopup();
+                    if (preset != null) {
+                        fillFromPreset(preset);
+                    }
+                }
+            });
+        }
+        mPresetPopup.setAdapter(mPresetAdapter);
+        mPresetPopup.setWidth(Math.max(mPresetSelector.getWidth(), mPresetSelector.getMeasuredWidth()));
+        mPresetPopup.show();
+    }
+
+    private void dismissPresetPopup() {
+        if (mPresetPopup != null && mPresetPopup.isShowing()) {
+            mPresetPopup.dismiss();
+        }
+    }
+
+    @Override
+    @NonNull
+    public String getAccountDisplayName(@Nullable String accountUID) {
+        return safeAccountName(accountUID);
+    }
+
+    @Override
+    public void onEditPreset(@NonNull TransactionPreset preset) {
+        dismissPresetPopup();
+        editPreset(preset);
+    }
+
+    @Override
+    public void onDeletePreset(@NonNull TransactionPreset preset) {
+        confirmDeletePreset(preset);
+    }
+
+    private void confirmDeletePreset(final TransactionPreset preset) {
+        dismissPresetPopup();
+        String label = preset.getDisplayLabel(
+                safeAccountName(preset.getFromAccountUID()),
+                safeAccountName(preset.getToAccountUID()));
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.title_confirm_delete)
+                .setMessage(getString(R.string.msg_delete_preset_confirmation, label))
+                .setPositiveButton(R.string.alert_dialog_ok_delete, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        if (mPresetStore.delete(preset.getId())) {
+                            if (preset.getId().equals(mEditingPresetId)) {
+                                mEditingPresetId = null;
+                            }
+                            Toast.makeText(TransactionPresetOverlayActivity.this,
+                                    R.string.toast_preset_deleted, Toast.LENGTH_SHORT).show();
+                            refreshPresetButtons();
+                        } else {
+                            Toast.makeText(TransactionPresetOverlayActivity.this,
+                                    R.string.toast_preset_delete_failed, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                })
+                .setNegativeButton(R.string.alert_dialog_cancel, null)
+                .show();
     }
 
     private String safeAccountName(String accountUID) {
@@ -359,7 +437,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
 
     /**
      * Fills the form from a preset without arming edit mode: a later
-     * "Save as button" creates a new preset instead of overwriting this one.
+     * "Save as preset" creates a new preset instead of overwriting this one.
      */
     private void fillFromPreset(TransactionPreset preset) {
         mEditingPresetId = null;
@@ -367,7 +445,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
     }
 
     /**
-     * Fills the form from a preset and arms edit mode so "Save as button"
+     * Fills the form from a preset and arms edit mode so "Save as preset"
      * updates this preset in place.
      */
     private void editPreset(TransactionPreset preset) {
@@ -413,49 +491,19 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
             AccountType fromType = getSelectedAccountType(mFromAccountSpinner);
             mDirectionSwitch.setAccountType(fromType);
             mDirectionSwitch.setChecked(preset.getDirectionOverride());
+            updateDirectionColor(mDirectionSwitch.isChecked());
             mDirectionUserOverridden = true;
         } else {
             mDirectionUserOverridden = false;
             applyDirectionDefault();
         }
 
+        // Label lives outside Extra settings; expand only when those fields have content.
         if (!mExtraSettingsExpanded
-                && (!preset.getLabel().isEmpty()
-                || !preset.getDescription().isEmpty()
+                && (!preset.getDescription().isEmpty()
                 || !preset.getNotes().isEmpty())) {
             mExtraSettingsLabel.performClick();
         }
-    }
-
-    private void showPresetActions(final TransactionPreset preset) {
-        new AlertDialog.Builder(this)
-                .setTitle(preset.getDisplayLabel(
-                        safeAccountName(preset.getFromAccountUID()),
-                        safeAccountName(preset.getToAccountUID())))
-                .setItems(new CharSequence[]{
-                        getString(R.string.btn_edit_preset),
-                        getString(R.string.btn_delete_preset)
-                }, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        if (which == 0) {
-                            editPreset(preset);
-                        } else if (which == 1) {
-                            if (!mPresetStore.delete(preset.getId())) {
-                                Toast.makeText(TransactionPresetOverlayActivity.this,
-                                        R.string.toast_preset_delete_failed, Toast.LENGTH_SHORT).show();
-                                return;
-                            }
-                            if (preset.getId().equals(mEditingPresetId)) {
-                                mEditingPresetId = null;
-                            }
-                            refreshPresetButtons();
-                            Toast.makeText(TransactionPresetOverlayActivity.this,
-                                    R.string.toast_preset_deleted, Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                })
-                .show();
     }
 
     /**
@@ -511,6 +559,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         mUpdatingSpinners = true;
         mDirectionSwitch.setChecked(type);
         mUpdatingSpinners = false;
+        updateDirectionColor(mDirectionSwitch.isChecked());
     }
 
     private void saveCurrentAsPreset() {
@@ -539,7 +588,11 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
 
         preset.setFromAccountUID(fromUID);
         preset.setToAccountUID(toUID);
-        preset.setLabel(mLabelEditText.getText().toString().trim());
+        String labelText = mLabelEditText.getText().toString().trim();
+        if (labelText.isEmpty()) {
+            labelText = generateDefaultPresetLabel();
+        }
+        preset.setLabel(labelText);
         preset.setDescription(mDescriptionEditText.getText().toString().trim());
         preset.setNotes(mNotesEditText.getText().toString().trim());
 
@@ -569,6 +622,29 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
         }
         refreshPresetButtons();
         Toast.makeText(this, R.string.toast_preset_saved, Toast.LENGTH_SHORT).show();
+    }
+
+    private String generateDefaultPresetLabel() {
+        return generateDefaultPresetLabel(mPresetStore.loadAll());
+    }
+
+    private String generateDefaultPresetLabel(List<TransactionPreset> presets) {
+        String prefix = getString(R.string.title_quick_transaction) + " ";
+        int maxNumber = 0;
+        for (TransactionPreset p : presets) {
+            String label = p.getLabel();
+            if (label != null && label.startsWith(prefix)) {
+                try {
+                    int num = Integer.parseInt(label.substring(prefix.length()).trim());
+                    if (num > maxNumber) {
+                        maxNumber = num;
+                    }
+                } catch (NumberFormatException e) {
+                    // ignore non-numeric suffixes
+                }
+            }
+        }
+        return prefix + (maxNumber + 1);
     }
 
     private void saveTransaction() {
@@ -690,6 +766,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity {
 
     @Override
     protected void onDestroy() {
+        dismissPresetPopup();
         super.onDestroy();
         if (mFromCursor != null) {
             mFromCursor.close();

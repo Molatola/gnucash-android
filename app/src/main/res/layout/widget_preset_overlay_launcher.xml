@@ -24,26 +24,25 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/appwidget_dark_bg_clickable"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingLeft="@dimen/edge_padding"
-        android:paddingRight="@dimen/edge_padding">
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="8dp">
+
+        <ImageView
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:contentDescription="@string/description_add_transaction_icon"
+            android:src="@drawable/content_new_holo_light" />
 
         <TextView
             android:id="@+id/widget_preset_title"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_marginTop="4dp"
             android:ellipsize="end"
             android:singleLine="true"
-            android:text="@string/title_quick_transaction"
-            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/title_quick_add"
+            android:textSize="12sp"
             android:textColor="@android:color/white" />
-
-        <ImageView
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:contentDescription="@string/description_add_transaction_icon"
-            android:src="@drawable/content_new_holo_light" />
     </LinearLayout>
 </FrameLayout>

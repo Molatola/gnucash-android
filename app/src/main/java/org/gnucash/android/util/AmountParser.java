@@ -21,30 +21,79 @@ public class AmountParser {
         return parse(amount, true);
     }
 
-    /**
-     * Parses {@code amount} like {@link #parse(String)} but rejects grouping separators.
-     *
-     * <p>Use this for plain amount input fields. With lenient parsing, an input like
-     * {@code "3.50"} in a comma-decimal locale is consumed as a grouped integer and yields
-     * {@code 350} — a silently wrong amount. With grouping disabled the same input fails
-     * with a {@link ParseException} so the user can correct it. Output of
-     * {@link #format(BigDecimal, int)} always re-parses successfully since it disables
-     * grouping too.</p>
-     *
-     * @param amount String with the amount to parse.
-     * @return The amount parsed as a BigDecimal.
-     * @throws ParseException if the full string couldn't be parsed as a plain decimal.
-     */
     public static BigDecimal parseStrict(String amount) throws ParseException {
-        // Some ICU-backed DecimalFormat versions still match grouping separators while
-        // parsing even with grouping disabled, so reject them explicitly.
-        DecimalFormat formatter = (DecimalFormat) NumberFormat.getNumberInstance();
-        char groupingSeparator = formatter.getDecimalFormatSymbols().getGroupingSeparator();
-        if (amount.indexOf(groupingSeparator) >= 0) {
-            throw new ParseException("Grouping separator not allowed", amount.indexOf(groupingSeparator));
+        try {
+            String originalAmount = amount;
+            amount = amount.trim();
+            if (amount.isEmpty()) {
+                throw new ParseException("Empty amount", 0);
+            }
+
+            int dots = 0;
+            int commas = 0;
+            int lastDotIndex = -1;
+            int lastCommaIndex = -1;
+            for (int i = 0; i < amount.length(); i++) {
+                char c = amount.charAt(i);
+                if (c == '.') { dots++; lastDotIndex = i; }
+                else if (c == ',') { commas++; lastCommaIndex = i; }
+            }
+
+            if (dots > 0 && commas > 0) {
+                if (lastDotIndex > lastCommaIndex) {
+                    return parseStrictFormat(amount, ",", "\\.");
+                } else {
+                    return parseStrictFormat(amount, "\\.", ",");
+                }
+            } else if (dots > 0 || commas > 0) {
+                char punct = dots > 0 ? '.' : ',';
+                int count = dots > 0 ? dots : commas;
+                int lastIndex = dots > 0 ? lastDotIndex : lastCommaIndex;
+
+                if (count > 1) {
+                    int digitsAfter = amount.length() - 1 - lastIndex;
+                    if (digitsAfter == 3) {
+                        return parseStrictFormat(amount, punct == '.' ? "\\." : ",", "");
+                    } else {
+                        throw new ParseException("Invalid format for amount: " + originalAmount, lastIndex);
+                    }
+                } else {
+                    int digitsAfter = amount.length() - 1 - lastIndex;
+                    if (digitsAfter == 3) {
+                        DecimalFormat formatter = (DecimalFormat) NumberFormat.getNumberInstance();
+                        char localeDecimal = formatter.getDecimalFormatSymbols().getDecimalSeparator();
+                        if (punct == localeDecimal) {
+                            amount = amount.replace(punct, '.');
+                            return new BigDecimal(amount);
+                        } else {
+                            amount = amount.replace(String.valueOf(punct), "");
+                            return new BigDecimal(amount);
+                        }
+                    } else {
+                        amount = amount.replace(punct, '.');
+                        return new BigDecimal(amount);
+                    }
+                }
+            } else {
+                return new BigDecimal(amount);
+            }
+        } catch (NumberFormatException e) {
+            throw new ParseException("Invalid amount", 0);
         }
-        return parse(amount, false);
     }
+
+    private static BigDecimal parseStrictFormat(String amount, String g, String d) throws ParseException {
+        String regex = "^-?(?:\\d{1,3}(?:" + g + "\\d{2,3})*" + g + "\\d{3}|\\d+)(?:" + d + "\\d+)?$";
+        if (!amount.matches(regex)) {
+            throw new ParseException("Invalid format for amount: " + amount, 0);
+        }
+        String clean = amount.replaceAll(g, "");
+        if (!d.isEmpty()) {
+            clean = clean.replace(d.charAt(d.length() - 1), '.');
+        }
+        return new BigDecimal(clean);
+    }
+
 
     private static BigDecimal parse(String amount, boolean groupingUsed) throws ParseException {
         DecimalFormat formatter = (DecimalFormat) NumberFormat.getNumberInstance();

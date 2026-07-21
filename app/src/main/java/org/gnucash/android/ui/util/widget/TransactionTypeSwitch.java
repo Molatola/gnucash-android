@@ -42,16 +42,49 @@ public class TransactionTypeSwitch extends SwitchCompat {
 
     List<OnCheckedChangeListener> mOnCheckedChangeListeners = new ArrayList<>();
 
+    /** Sole amount-formatting listener; replaced on each {@link #setAmountFormattingListener}. */
+    private OnCheckedChangeListener mAmountFormattingListener;
+
     public TransactionTypeSwitch(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
+        init();
     }
 
     public TransactionTypeSwitch(Context context, AttributeSet attrs) {
         super(context, attrs);
+        init();
     }
 
     public TransactionTypeSwitch(Context context) {
         super(context);
+        init();
+    }
+
+    private void init() {
+        // Must use super: {@link #setOnCheckedChangeListener} redirects to addOnCheckedChangeListener
+        // so callers cannot replace this dispatcher.
+        super.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                setText(isChecked ? getTextOn() : getTextOff());
+                for (OnCheckedChangeListener listener : mOnCheckedChangeListeners) {
+                    listener.onCheckedChanged(buttonView, isChecked);
+                }
+            }
+        });
+    }
+
+    /**
+     * Do not replace the internal dispatcher. Redirects to
+     * {@link #addOnCheckedChangeListener(OnCheckedChangeListener)} so the listener
+     * installed in {@link #init()} keeps firing for all registered listeners.
+     * Passing {@code null} is ignored (clearing would wipe the dispatcher).
+     */
+    @Override
+    public void setOnCheckedChangeListener(OnCheckedChangeListener listener) {
+        if (listener != null) {
+            addOnCheckedChangeListener(listener);
+        }
     }
 
     public void setAccountType(AccountType accountType){
@@ -109,12 +142,18 @@ public class TransactionTypeSwitch extends SwitchCompat {
     }
 
     /**
-     * Set a checked change listener to monitor the amount view and currency views and update the display (color & balance accordingly)
+     * Set a checked change listener to monitor the amount view and currency views and update the display (color & balance accordingly).
+     * <p>Replaces any previously installed amount-formatting listener. Other listeners added via
+     * {@link #addOnCheckedChangeListener(OnCheckedChangeListener)} are left intact.</p>
      * @param amoutView Amount string {@link android.widget.EditText}
      * @param currencyTextView Currency symbol text view
      */
     public void setAmountFormattingListener(CalculatorEditText amoutView, TextView currencyTextView){
-        setOnCheckedChangeListener(new OnTypeChangedListener(amoutView, currencyTextView));
+        if (mAmountFormattingListener != null) {
+            mOnCheckedChangeListeners.remove(mAmountFormattingListener);
+        }
+        mAmountFormattingListener = new OnTypeChangedListener(amoutView, currencyTextView);
+        addOnCheckedChangeListener(mAmountFormattingListener);
     }
 
     /**
@@ -164,18 +203,17 @@ public class TransactionTypeSwitch extends SwitchCompat {
 
         @Override
         public void onCheckedChanged(CompoundButton compoundButton, boolean isChecked) {
-            setText(isChecked ? getTextOn() : getTextOff());
             if (isChecked){
                 int red = ContextCompat.getColor(getContext(), R.color.debit_red);
                 TransactionTypeSwitch.this.setTextColor(red);
-                mAmountEditText.setTextColor(red);
-                mCurrencyTextView.setTextColor(red);
+                if (mAmountEditText != null) mAmountEditText.setTextColor(red);
+                if (mCurrencyTextView != null) mCurrencyTextView.setTextColor(red);
             }
             else {
                 int green = ContextCompat.getColor(getContext(), R.color.credit_green);
                 TransactionTypeSwitch.this.setTextColor(green);
-                mAmountEditText.setTextColor(green);
-                mCurrencyTextView.setTextColor(green);
+                if (mAmountEditText != null) mAmountEditText.setTextColor(green);
+                if (mCurrencyTextView != null) mCurrencyTextView.setTextColor(green);
             }
             BigDecimal amount = mAmountEditText.getValue();
             if (amount != null){
@@ -184,10 +222,6 @@ public class TransactionTypeSwitch extends SwitchCompat {
                     mAmountEditText.setValue(amount.negate());
                 }
 
-            }
-
-            for (OnCheckedChangeListener listener : mOnCheckedChangeListeners) {
-                listener.onCheckedChanged(compoundButton, isChecked);
             }
         }
     }

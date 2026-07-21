@@ -40,34 +40,26 @@
         android:text="@string/label_preset_buttons"
         style="@style/TextAppearance.EditTransaction_LabelSmall" />
 
-    <HorizontalScrollView
+    <TextView
+        android:id="@+id/preset_selector"
+        style="@style/Dropdown.TextView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:scrollbars="none">
+        android:layout_marginBottom="8dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:minHeight="?android:attr/listPreferredItemHeight"
+        android:text="@string/label_select_preset" />
 
-        <LinearLayout
-            android:id="@+id/preset_buttons_container"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingBottom="4dp"
-            android:paddingTop="4dp" />
-    </HorizontalScrollView>
-
-    <TextView
-        android:layout_width="wrap_content"
+    <EditText
+        android:id="@+id/input_preset_label"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:labelFor="@+id/input_from_account"
-        android:text="@string/label_from_account"
-        style="@style/TextAppearance.EditTransaction_LabelSmall" />
-
-    <Spinner
-        android:id="@+id/input_from_account"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:minHeight="?android:attr/listPreferredItemHeight" />
+        android:hint="@string/label_preset_button_label"
+        android:inputType="textCapWords"
+        android:singleLine="true" />
 
     <LinearLayout
         android:id="@+id/layout_to_account"
@@ -78,16 +70,56 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="8dp"
             android:labelFor="@+id/input_to_account"
             android:text="@string/label_to_account"
             style="@style/TextAppearance.EditTransaction_LabelSmall" />
 
-        <Spinner
-            android:id="@+id/input_to_account"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="?android:attr/listPreferredItemHeight" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView style="@style/FormIcon"
+                android:src="@drawable/ic_action_forward" />
+            <Spinner
+                android:id="@+id/input_to_account"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:minHeight="?android:attr/listPreferredItemHeight" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/layout_from_account"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:labelFor="@+id/input_from_account"
+            android:text="@string/label_from_account"
+            style="@style/TextAppearance.EditTransaction_LabelSmall" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView style="@style/FormIcon"
+                android:src="@drawable/ic_action_forward"
+                android:rotation="180" />
+            <Spinner
+                android:id="@+id/input_from_account"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:minHeight="?android:attr/listPreferredItemHeight" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
@@ -137,14 +169,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:visibility="gone">
-
-        <EditText
-            android:id="@+id/input_preset_label"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/label_preset_button_label"
-            android:inputType="textCapWords"
-            android:singleLine="true" />
 
         <EditText
             android:id="@+id/input_preset_description"

@@ -64,16 +64,16 @@ public class AmountParserTest {
         assertThat(AmountParser.parseStrict("3,50")).isEqualByComparingTo(new BigDecimal("3.50"));
     }
 
-    @Test(expected = ParseException.class)
-    public void parseStrict_rejectsGroupingSeparatorInsteadOfSilentlyMisparsing() throws ParseException {
-        // lenient parse would read "3.50" in a comma-decimal locale as the grouped integer 350
+    @Test
+    public void parseStrict_smartlyParsesDecimalInsteadOfSilentlyMisparsing() throws ParseException {
         Locale.setDefault(Locale.GERMANY);
-        AmountParser.parseStrict("3.50");
+        // My flexible parser knows "3.50" is 3.5 because the dot has 2 digits after it
+        assertThat(AmountParser.parseStrict("3.50")).isEqualByComparingTo(new BigDecimal("3.50"));
     }
 
-    @Test(expected = ParseException.class)
-    public void parseStrict_rejectsGroupingSeparatorInUsLocale() throws ParseException {
-        AmountParser.parseStrict("3,50");
+    @Test
+    public void parseStrict_smartlyParsesCommaAsDecimalInUsLocale() throws ParseException {
+        assertThat(AmountParser.parseStrict("3,50")).isEqualByComparingTo(new BigDecimal("3.50"));
     }
 
     @Test
