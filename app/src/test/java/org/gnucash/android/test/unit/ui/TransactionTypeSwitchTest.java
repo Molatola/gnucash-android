@@ -52,7 +52,39 @@ public class TransactionTypeSwitchTest {
     }
 
     @Test
-    public void setOnCheckedChangeListener_appendsRatherThanReplacingDispatcher() {
+    public void setOnCheckedChangeListener_doesNotWipeDispatcherAndReplacesExternal() {
+        final AtomicInteger viaSetFirst = new AtomicInteger();
+        final AtomicInteger viaSetSecond = new AtomicInteger();
+        final AtomicInteger viaAdd = new AtomicInteger();
+
+        mSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                viaSetFirst.incrementAndGet();
+            }
+        });
+        mSwitch.addOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                viaAdd.incrementAndGet();
+            }
+        });
+        mSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                viaSetSecond.incrementAndGet();
+            }
+        });
+
+        mSwitch.setChecked(!mSwitch.isChecked());
+
+        assertThat(viaSetFirst.get()).isEqualTo(0);
+        assertThat(viaSetSecond.get()).isEqualTo(1);
+        assertThat(viaAdd.get()).isEqualTo(1);
+    }
+
+    @Test
+    public void setOnCheckedChangeListener_null_clearsExternalListener() {
         final AtomicInteger viaSet = new AtomicInteger();
         final AtomicInteger viaAdd = new AtomicInteger();
 
@@ -69,26 +101,11 @@ public class TransactionTypeSwitchTest {
             }
         });
 
-        mSwitch.setChecked(!mSwitch.isChecked());
-
-        assertThat(viaSet.get()).isEqualTo(1);
-        assertThat(viaAdd.get()).isEqualTo(1);
-    }
-
-    @Test
-    public void setOnCheckedChangeListener_null_isIgnored() {
-        final AtomicInteger calls = new AtomicInteger();
-        mSwitch.addOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                calls.incrementAndGet();
-            }
-        });
-
         mSwitch.setOnCheckedChangeListener(null);
         mSwitch.setChecked(!mSwitch.isChecked());
 
-        assertThat(calls.get()).isEqualTo(1);
+        assertThat(viaSet.get()).isEqualTo(0);
+        assertThat(viaAdd.get()).isEqualTo(1);
     }
 
     @Test

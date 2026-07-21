@@ -138,7 +138,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity
         }
 
         bindListeners();
-        refreshPresetButtons();
+        refreshPresets();
         if (savedInstanceState != null) {
             restoreState(savedInstanceState);
         } else {
@@ -322,7 +322,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity
         mAmountEditText.setTextColor(color);
     }
 
-    private void refreshPresetButtons() {
+    private void refreshPresets() {
         List<TransactionPreset> presets = mPresetStore.loadAll();
         mLabelEditText.setHint(generateDefaultPresetLabel(presets));
         mPresetAdapter = new TransactionPresetAdapter(this, presets, this);
@@ -402,7 +402,7 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity
                             }
                             Toast.makeText(TransactionPresetOverlayActivity.this,
                                     R.string.toast_preset_deleted, Toast.LENGTH_SHORT).show();
-                            refreshPresetButtons();
+                            refreshPresets();
                         } else {
                             Toast.makeText(TransactionPresetOverlayActivity.this,
                                     R.string.toast_preset_delete_failed, Toast.LENGTH_SHORT).show();
@@ -504,6 +504,10 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity
                 || !preset.getNotes().isEmpty())) {
             mExtraSettingsLabel.performClick();
         }
+
+        mPresetSelector.setText(preset.getDisplayLabel(
+                safeAccountName(preset.getFromAccountUID()),
+                safeAccountName(preset.getToAccountUID())));
     }
 
     /**
@@ -620,7 +624,10 @@ public class TransactionPresetOverlayActivity extends PasscodeLockActivity
             Toast.makeText(this, R.string.toast_preset_save_failed, Toast.LENGTH_SHORT).show();
             return;
         }
-        refreshPresetButtons();
+        refreshPresets();
+        mPresetSelector.setText(preset.getDisplayLabel(
+                safeAccountName(preset.getFromAccountUID()),
+                safeAccountName(preset.getToAccountUID())));
         Toast.makeText(this, R.string.toast_preset_saved, Toast.LENGTH_SHORT).show();
     }
 

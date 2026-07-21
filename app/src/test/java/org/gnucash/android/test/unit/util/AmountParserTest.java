@@ -65,15 +65,44 @@ public class AmountParserTest {
     }
 
     @Test
-    public void parseStrict_smartlyParsesDecimalInsteadOfSilentlyMisparsing() throws ParseException {
+    public void parseStrict_parsesDotAsDecimalInGermanLocale() throws ParseException {
         Locale.setDefault(Locale.GERMANY);
-        // My flexible parser knows "3.50" is 3.5 because the dot has 2 digits after it
+        // Two digits after the separator → decimal, not grouping
         assertThat(AmountParser.parseStrict("3.50")).isEqualByComparingTo(new BigDecimal("3.50"));
     }
 
     @Test
-    public void parseStrict_smartlyParsesCommaAsDecimalInUsLocale() throws ParseException {
+    public void parseStrict_parsesCommaAsDecimalInUsLocale() throws ParseException {
         assertThat(AmountParser.parseStrict("3,50")).isEqualByComparingTo(new BigDecimal("3.50"));
+    }
+
+    @Test
+    public void parseStrict_acceptsGroupingSeparators() throws ParseException {
+        assertThat(AmountParser.parseStrict("1,000")).isEqualByComparingTo(new BigDecimal("1000"));
+
+        Locale.setDefault(Locale.GERMANY);
+        assertThat(AmountParser.parseStrict("1.000")).isEqualByComparingTo(new BigDecimal("1000"));
+    }
+
+    @Test
+    public void parseStrict_acceptsMixedSeparators() throws ParseException {
+        assertThat(AmountParser.parseStrict("1,234.56")).isEqualByComparingTo(new BigDecimal("1234.56"));
+        assertThat(AmountParser.parseStrict("1.234,56")).isEqualByComparingTo(new BigDecimal("1234.56"));
+    }
+
+    @Test(expected = ParseException.class)
+    public void parseStrict_emptyString_shouldFailWithException() throws ParseException {
+        AmountParser.parseStrict("");
+    }
+
+    @Test(expected = ParseException.class)
+    public void parseStrict_whitespace_shouldFailWithException() throws ParseException {
+        AmountParser.parseStrict("   ");
+    }
+
+    @Test(expected = ParseException.class)
+    public void parseStrict_null_shouldFailWithException() throws ParseException {
+        AmountParser.parseStrict(null);
     }
 
     @Test

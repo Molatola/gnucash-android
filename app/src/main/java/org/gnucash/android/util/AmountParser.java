@@ -21,7 +21,29 @@ public class AmountParser {
         return parse(amount, true);
     }
 
+    /**
+     * Parses {@code amount} as a BigDecimal using a separator-flexible heuristic.
+     *
+     * <p>Accepts both {@code '.'} and {@code ','} as decimal or grouping separators.
+     * When both appear, the last separator is treated as the decimal and the other as
+     * grouping (e.g. {@code "1,234.56"} and {@code "1.234,56"}). When only one separator
+     * type appears more than once, it is treated as grouping if there are exactly three
+     * digits after the last occurrence (e.g. {@code "1,000"} / {@code "1.000"}); otherwise
+     * the input is rejected. A single separator followed by exactly three digits is
+     * resolved using the default locale's decimal separator when ambiguous; otherwise a
+     * single separator is treated as the decimal point. Inputs like {@code "3.50"} and
+     * {@code "3,50"} are therefore accepted in either locale.</p>
+     *
+     * <p>{@code null}, empty, and whitespace-only inputs throw {@link ParseException}.</p>
+     *
+     * @param amount String with the amount to parse.
+     * @return The amount parsed as a BigDecimal.
+     * @throws ParseException if the string couldn't be parsed as an amount.
+     */
     public static BigDecimal parseStrict(String amount) throws ParseException {
+        if (amount == null) {
+            throw new ParseException("Null amount", 0);
+        }
         try {
             String originalAmount = amount;
             amount = amount.trim();

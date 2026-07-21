@@ -129,7 +129,7 @@
         android:orientation="horizontal"
         android:paddingTop="4dp">
 
-        <!-- digits allows both decimal separators; parsing is locale-strict (AmountParser.parseStrict) -->
+        <!-- digits allows both decimal separators; parsing accepts both via AmountParser.parseStrict -->
         <EditText
             android:id="@+id/input_preset_amount"
             android:layout_width="0dp"

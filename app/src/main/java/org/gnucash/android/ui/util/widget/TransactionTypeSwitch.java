@@ -45,6 +45,12 @@ public class TransactionTypeSwitch extends SwitchCompat {
     /** Sole amount-formatting listener; replaced on each {@link #setAmountFormattingListener}. */
     private OnCheckedChangeListener mAmountFormattingListener;
 
+    /**
+     * Single external listener slot for {@link #setOnCheckedChangeListener}.
+     * Replaced (not accumulated) on each non-null set; cleared when set to {@code null}.
+     */
+    private OnCheckedChangeListener mExternalListener;
+
     public TransactionTypeSwitch(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
         init();
@@ -61,8 +67,8 @@ public class TransactionTypeSwitch extends SwitchCompat {
     }
 
     private void init() {
-        // Must use super: {@link #setOnCheckedChangeListener} redirects to addOnCheckedChangeListener
-        // so callers cannot replace this dispatcher.
+        // Must use super: {@link #setOnCheckedChangeListener} only manages mExternalListener
+        // and never replaces this dispatcher.
         super.setOnCheckedChangeListener(new OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -75,14 +81,22 @@ public class TransactionTypeSwitch extends SwitchCompat {
     }
 
     /**
-     * Do not replace the internal dispatcher. Redirects to
-     * {@link #addOnCheckedChangeListener(OnCheckedChangeListener)} so the listener
-     * installed in {@link #init()} keeps firing for all registered listeners.
-     * Passing {@code null} is ignored (clearing would wipe the dispatcher).
+     * Sets the external checked-change listener without replacing the internal dispatcher.
+     * <p>Unlike {@link CompoundButton#setOnCheckedChangeListener}, this keeps the dispatcher
+     * installed in {@link #init()} so listeners added via
+     * {@link #addOnCheckedChangeListener(OnCheckedChangeListener)} and the amount-formatting
+     * listener continue to fire.</p>
+     * <p>A non-null listener replaces any previous external listener (does not accumulate).
+     * Passing {@code null} removes the previous external listener.</p>
      */
     @Override
     public void setOnCheckedChangeListener(OnCheckedChangeListener listener) {
+        if (mExternalListener != null) {
+            mOnCheckedChangeListeners.remove(mExternalListener);
+            mExternalListener = null;
+        }
         if (listener != null) {
+            mExternalListener = listener;
             addOnCheckedChangeListener(listener);
         }
     }
@@ -215,13 +229,14 @@ public class TransactionTypeSwitch extends SwitchCompat {
                 if (mAmountEditText != null) mAmountEditText.setTextColor(green);
                 if (mCurrencyTextView != null) mCurrencyTextView.setTextColor(green);
             }
-            BigDecimal amount = mAmountEditText.getValue();
-            if (amount != null){
-                if ((isChecked && amount.signum() > 0) //we switched to debit but the amount is +ve
-                        || (!isChecked && amount.signum() < 0)){ //credit but amount is -ve
-                    mAmountEditText.setValue(amount.negate());
+            if (mAmountEditText != null) {
+                BigDecimal amount = mAmountEditText.getValue();
+                if (amount != null){
+                    if ((isChecked && amount.signum() > 0) //we switched to debit but the amount is +ve
+                            || (!isChecked && amount.signum() < 0)){ //credit but amount is -ve
+                        mAmountEditText.setValue(amount.negate());
+                    }
                 }
-
             }
         }
     }
